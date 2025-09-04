@@ -4,11 +4,13 @@
   "description": "Facebook API Data Analyser - Tidserie-baserad webbapp för analys av Facebook månadsstatistik",
   "private": true,
   "type": "module",
+  "homepage": "https://cgillinger.github.io/fb-page-analyzer",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "vite build && gh-pages -d dist"
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.0.5",

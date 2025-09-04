@@ -21,6 +21,73 @@ import {
   Target
 } from 'lucide-react';
 
+// Sveriges Radio kanal-färger (från original)
+const CHANNEL_COLORS = {
+  'P1': '#0066cc', // Blå
+  'P2': '#ff6600', // Orange
+  'P3': '#00cc66', // Grön
+  'P4': '#cc33cc', // Magenta/Lila
+  'EKOT': '#005eb8', // Mörk blå (Ekot/Radio Sweden)
+  'RADIOSPORTEN': '#1c5c35', // Mörk grön (Radiosporten)
+  'SR': '#000000',  // Svart för Sveriges Radio
+  'default': '#000000' // Svart som fallback
+};
+
+// ProfileIcon-komponent för Sveriges Radio kanaler (KORRIGERAD)
+const ProfileIcon = ({ pageName }) => {
+  // Extrahera namn från sidnamnet
+  const name = pageName || 'Okänd';
+  
+  // Bestäm färg och kanal-text baserat på kanalnamn i sidnamnet
+  let backgroundColor = CHANNEL_COLORS.default;
+  let channelText = '';
+  
+  // Kontrollera om sidnamnet innehåller något av kanalnamnen
+  const nameLower = name.toLowerCase();
+  
+  if (nameLower.includes('ekot') || nameLower.includes('radio sweden')) {
+    backgroundColor = CHANNEL_COLORS.EKOT;
+    channelText = 'E';
+  } else if (nameLower.includes('radiosporten') || nameLower.includes('radio sporten')) {
+    backgroundColor = CHANNEL_COLORS.RADIOSPORTEN;
+    channelText = 'RS';
+  } else if (nameLower.includes('p1')) {
+    backgroundColor = CHANNEL_COLORS.P1;
+    channelText = 'P1';
+  } else if (nameLower.includes('p2')) {
+    backgroundColor = CHANNEL_COLORS.P2;
+    channelText = 'P2';
+  } else if (nameLower.includes('p3')) {
+    backgroundColor = CHANNEL_COLORS.P3;
+    channelText = 'P3';
+  } else if (nameLower.includes('p4')) {
+    backgroundColor = CHANNEL_COLORS.P4;
+    channelText = 'P4';
+  } else if (nameLower.includes('sveriges radio') && !nameLower.includes('p1') && 
+            !nameLower.includes('p2') && !nameLower.includes('p3') && !nameLower.includes('p4')) {
+    // Sveriges Radio, men inte specifik kanal
+    backgroundColor = CHANNEL_COLORS.SR;
+    channelText = 'SR';
+  } else {
+    // Fallback: använd första bokstaven om ingen kanal hittas
+    channelText = name.charAt(0).toUpperCase();
+  }
+  
+  // Bestäm textfärg baserat på bakgrundsfärgen (vit text på mörka bakgrunder)
+  const isLightBackground = backgroundColor === CHANNEL_COLORS.P2 || backgroundColor === CHANNEL_COLORS.P3;
+  const textColor = isLightBackground ? 'text-black' : 'text-white';
+  
+  return (
+    <div 
+      className={`flex-shrink-0 w-6 h-6 rounded-sm flex items-center justify-center text-xs font-bold ${textColor}`}
+      style={{ backgroundColor }}
+      title={pageName}
+    >
+      {channelText}
+    </div>
+  );
+};
+
 // Sidstorlekar för paginering
 const PAGE_SIZE_OPTIONS = [
   { value: 6, label: '6 per sida' },
@@ -28,20 +95,24 @@ const PAGE_SIZE_OPTIONS = [
   { value: 24, label: '24 per sida' }
 ];
 
-// KORRIGERAT: Tillgängliga metrics (utan Status & Kommentarer)
+// KORRIGERAT: Tillgängliga metrics (utan Engaged Users + rätt svenska namn)
 const AVAILABLE_METRICS = [
   { key: 'reach', label: 'Räckvidd', canSum: false },
   { key: 'engagements', label: 'Engagemang', canSum: true },
   { key: 'reactions', label: 'Reaktioner', canSum: true },
-  { key: 'publications', label: 'Publiceringar', canSum: true }
+  { key: 'publications', label: 'Publiceringar', canSum: true },
+  { key: 'status', label: 'Status', canSum: true },
+  { key: 'comment', label: 'Kommentarer', canSum: true }
 ];
 
-// Metric-definitioner (korrigerade - utan Status & Kommentarer)
+// Metric-definitioner (korrigerade)
 const METRIC_DEFINITIONS = {
   reach: { displayName: 'Räckvidd', canSumAcrossPages: false, category: 'unique_persons' },
   engagements: { displayName: 'Engagemang', canSumAcrossPages: true, category: 'countable' },
   reactions: { displayName: 'Reaktioner', canSumAcrossPages: true, category: 'countable' },
-  publications: { displayName: 'Publiceringar', canSumAcrossPages: true, category: 'countable' }
+  publications: { displayName: 'Publiceringar', canSumAcrossPages: true, category: 'countable' },
+  status: { displayName: 'Status', canSumAcrossPages: true, category: 'countable' },
+  comment: { displayName: 'Kommentarer', canSumAcrossPages: true, category: 'countable' }
 };
 
 function PageTimeseriesView({ uploadedPeriods = [] }) {
@@ -144,7 +215,9 @@ function PageTimeseriesView({ uploadedPeriods = [] }) {
                   reach: parseNumericValue(pageRow.Reach || pageRow.reach),
                   engagements: parseNumericValue(pageRow.Engagements || pageRow.engagements),
                   reactions: parseNumericValue(pageRow.Reactions || pageRow.reactions),
-                  publications: parseNumericValue(pageRow.Publications || pageRow.publications)
+                  publications: parseNumericValue(pageRow.Publications || pageRow.publications),
+                  status: parseNumericValue(pageRow.Status || pageRow.status),
+                  comment: parseNumericValue(pageRow.Comment || pageRow.comment)
                 }
               });
             }
@@ -186,6 +259,9 @@ function PageTimeseriesView({ uploadedPeriods = [] }) {
     const parsed = parseFloat(String(value).replace(/[,\s]/g, ''));
     return isNaN(parsed) ? 0 : parsed;
   };
+
+// DEL_1_SLUTAR_HÄR - Fortsätt med del 2 som börjar med calculatePageStatistics
+// DEL_2_BÖRJAR_HÄR - Fortsättning från del 1 med calculatePageStatistics
 
   // Beräkna statistik för sidan (KORRIGERAT)
   const calculatePageStatistics = (data) => {
@@ -337,42 +413,43 @@ function PageTimeseriesView({ uploadedPeriods = [] }) {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    
-    const pageName = selectedPage?.pageName.replace(/[^a-zA-Z0-9]/g, '_') || 'sida';
-    link.setAttribute('download', `facebook_tidserie_${pageName}.csv`);
+    link.setAttribute('download', `${selectedPage?.pageName.replace(/[^a-zA-Z0-9]/g, '_')}_tidsserie.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Få trend-ikon
-  const getTrendIcon = (trend) => {
-    switch (trend) {
-      case 'up':
-        return <TrendingUp className="h-4 w-4 text-green-500" />;
-      case 'down':
-        return <TrendingDown className="h-4 w-4 text-red-500" />;
-      default:
-        return <Activity className="h-4 w-4 text-gray-500" />;
-    }
+  // Formatera numeriska värden
+  const formatValue = (value) => {
+    if (value === null || value === undefined || isNaN(value)) return '-';
+    return new Intl.NumberFormat('sv-SE').format(value);
   };
 
-  // Återställ pagination när pageSize ändras
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [pageSize, selectedPageId, selectedMetrics]);
+  // Hitta bästa och sämsta värden för prestanda-highlighting
+  const getPerformanceClass = (metric, value, data) => {
+    if (!data || data.length < 2 || value === null || value === undefined) return '';
+    
+    const values = data.map(d => d.metrics[metric]).filter(v => v !== null && v !== undefined && !isNaN(v));
+    if (values.length < 2) return '';
+    
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    
+    if (value === max && max !== min) return 'bg-green-100 text-green-800 font-medium';
+    if (value === min && max !== min) return 'bg-red-100 text-red-800 font-medium';
+    return '';
+  };
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin h-8 w-8 border-b-2 border-facebook-500 mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Laddar siddata...</p>
-          </div>
-        </CardContent>
-      </Card>
+      <Alert>
+        <Activity className="h-4 w-4" />
+        <AlertTitle>Laddar data</AlertTitle>
+        <AlertDescription>
+          Analyserar tidserie-data för Facebook-sidor...
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -380,19 +457,9 @@ function PageTimeseriesView({ uploadedPeriods = [] }) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Fel vid laddning av data</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
-  }
-
-  if (uploadedPeriods.length === 0) {
-    return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Ingen data tillgänglig</AlertTitle>
+        <AlertTitle>Fel</AlertTitle>
         <AlertDescription>
-          Ladda upp Facebook CSV-filer för att visa sidanalys över tid.
+          {error}
         </AlertDescription>
       </Alert>
     );
@@ -436,7 +503,10 @@ function PageTimeseriesView({ uploadedPeriods = [] }) {
                 <SelectContent>
                   {availablePages.map(page => (
                     <SelectItem key={page.pageId} value={page.pageId}>
-                      {page.pageName}
+                      <div className="flex items-center gap-2">
+                        <ProfileIcon pageName={page.pageName} />
+                        <span>{page.pageName}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -463,231 +533,223 @@ function PageTimeseriesView({ uploadedPeriods = [] }) {
                         onChange={() => handleMetricToggle(metric.key)}
                         className="h-4 w-4 text-facebook-500 border-gray-300 rounded focus:ring-facebook-500"
                       />
-                      <span className="text-sm font-medium text-gray-700">
-                        {metric.label}
-                      </span>
+                      <span className="text-sm font-medium">{metric.label}</span>
+                      {!metric.canSum && (
+                        <span className="text-xs text-orange-600 font-medium">*</span>
+                      )}
                     </label>
                   );
                 })}
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                * = Kan inte summeras över månader (unika personer)
+              </p>
             </div>
           </div>
+
+          {/* Statistik-sammanfattning */}
+          {pageStats && (
+            <div className="grid md:grid-cols-4 gap-4 mb-6 p-4 bg-muted/30 rounded-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-facebook-600 flex items-center justify-center gap-2">
+                  <ProfileIcon pageName={pageStats.pageName} />
+                  {pageStats.totalPeriods}
+                </div>
+                <div className="text-sm text-muted-foreground">Månader data</div>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-lg font-semibold">
+                  {getMonthName(pageStats.firstPeriod.month)} {pageStats.firstPeriod.year}
+                </div>
+                <div className="text-sm text-muted-foreground">Första månad</div>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-lg font-semibold">
+                  {getMonthName(pageStats.lastPeriod.month)} {pageStats.lastPeriod.year}
+                </div>
+                <div className="text-sm text-muted-foreground">Senaste månad</div>
+              </div>
+
+              <div className="text-center">
+                <div className="text-lg font-semibold text-facebook-600">
+                  {selectedPage?.pageName || 'Okänd sida'}
+                </div>
+                <div className="text-sm text-muted-foreground">Vald sida</div>
+              </div>
+            </div>
+          )}
+
+          {/* Trend-indikatorer för valda metrics */}
+          {Object.keys(trendAnalysis).length > 0 && (
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              {selectedMetrics.slice(0, 3).map(metric => {
+                const trend = trendAnalysis[metric];
+                const definition = METRIC_DEFINITIONS[metric];
+                
+                if (!trend || !definition) return null;
+                
+                return (
+                  <div key={metric} className="flex items-center gap-3 p-3 bg-white border rounded-lg">
+                    {trend.trend === 'up' && <TrendingUp className="h-5 w-5 text-green-600" />}
+                    {trend.trend === 'down' && <TrendingDown className="h-5 w-5 text-red-600" />}
+                    {trend.trend === 'stable' && <Activity className="h-5 w-5 text-gray-500" />}
+                    
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{definition.displayName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {trend.percentChange > 0 ? '+' : ''}{trend.percentChange}% sedan första månad
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Statistik-sammandrag */}
-      {pageStats && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-facebook-500" />
-              Prestanda-sammandrag för {pageStats.pageName}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="text-center">
-                <div className="font-bold text-lg text-facebook-600">{pageStats.totalPeriods}</div>
-                <div className="text-sm text-muted-foreground">Månader med data</div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">Första månad</div>
-                <div className="font-medium">
-                  {pageStats.firstPeriod ? `${getMonthName(pageStats.firstPeriod.month)} ${pageStats.firstPeriod.year}` : '-'}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">Senaste månad</div>
-                <div className="font-medium">
-                  {pageStats.lastPeriod ? `${getMonthName(pageStats.lastPeriod.month)} ${pageStats.lastPeriod.year}` : '-'}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">Dataperiod</div>
-                <div className="font-medium">
-                  {pageStats.totalPeriods > 1 ? `${pageStats.totalPeriods} månader` : 'En månad'}
-                </div>
-              </div>
-            </div>
-
-            {/* Trend-analys för valda metrics */}
-            {Object.keys(trendAnalysis).length > 0 && (
-              <div className="border rounded-lg p-4 bg-muted/30">
-                <h4 className="font-medium mb-3 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Utvecklingstrend (första vs senaste månaden)
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {selectedMetrics.slice(0, 3).map(metric => {
-                    const trend = trendAnalysis[metric];
-                    const definition = METRIC_DEFINITIONS[metric];
-                    
-                    if (!trend || !definition) return null;
-                    
-                    return (
-                      <div key={metric} className="flex items-center justify-between p-3 rounded border">
-                        <div>
-                          <div className="font-medium text-sm">{definition.displayName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {trend.change > 0 ? '+' : ''}{trend.change.toLocaleString()} 
-                            ({trend.percentChange > 0 ? '+' : ''}{trend.percentChange}%)
-                          </div>
-                        </div>
-                        {getTrendIcon(trend.trend)}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Huvud-tabell */}
+      {/* Tidserie-tabell */}
       <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-facebook-500" />
-              Månadsutveckling ({sortedData.length} månader)
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleExportCSV}>
-                <FileDown className="mr-2 h-4 w-4" />
-                CSV
-              </Button>
-              <Button variant="outline" onClick={() => handleExportCSV()}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Excel
-              </Button>
-            </div>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Månadsvis utveckling - {selectedPage?.pageName || 'Okänd sida'}
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button onClick={handleExportCSV} variant="outline" size="sm">
+              <FileDown className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 min-w-[120px]"
-                    onClick={() => handleSort('year_month')}
-                  >
-                    <div className="flex items-center">
-                      Period {getSortIcon('year_month')}
-                    </div>
-                  </TableHead>
-                  
-                  {selectedMetrics.map(metric => {
-                    const definition = METRIC_DEFINITIONS[metric];
-                    return (
-                      <TableHead 
-                        key={metric}
-                        className="cursor-pointer hover:bg-muted/50 text-right"
-                        onClick={() => handleSort(metric)}
-                      >
-                        <div className="flex items-center justify-end">
-                          {definition ? definition.displayName : metric}
-                          {getSortIcon(metric)}
-                        </div>
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedData.map((item, index) => (
-                  <TableRow key={`${item.year}-${item.month}`}>
-                    <TableCell className="font-medium">
-                      <div>
-                        <div>{getMonthName(item.month)} {item.year}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.year}-{String(item.month).padStart(2, '0')}
-                        </div>
+          {pageTimeseriesData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              Ingen tidserie-data tillgänglig för vald sida
+            </p>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead 
+                      className="cursor-pointer select-none"
+                      onClick={() => handleSort('year_month')}
+                    >
+                      <div className="flex items-center">
+                        Period
+                        {getSortIcon('year_month')}
                       </div>
-                    </TableCell>
-                    
+                    </TableHead>
                     {selectedMetrics.map(metric => {
-                      const value = item.metrics[metric] || 0;
                       const definition = METRIC_DEFINITIONS[metric];
-                      
-                      // Kontrollera om detta är bästa eller sämsta värdet för denna metric
-                      const metricStats = pageStats?.metrics[metric];
-                      const isBest = metricStats && value === metricStats.max;
-                      const isWorst = metricStats && value === metricStats.min && metricStats.min !== metricStats.max;
-                      
                       return (
-                        <TableCell key={metric} className="text-right">
-                          <div className={`font-mono ${isBest ? 'text-green-600 font-bold' : isWorst ? 'text-red-600' : ''}`}>
-                            {typeof value === 'number' ? value.toLocaleString() : value}
-                            {isBest && <span className="ml-1 text-xs">🏆</span>}
-                            {isWorst && <span className="ml-1 text-xs">📉</span>}
+                        <TableHead 
+                          key={metric}
+                          className="text-right cursor-pointer select-none"
+                          onClick={() => handleSort(metric)}
+                        >
+                          <div className="flex items-center justify-end">
+                            {definition?.displayName || metric}
+                            {getSortIcon(metric)}
+                            {!definition?.canSumAcrossPages && (
+                              <span className="ml-1 text-orange-600">*</span>
+                            )}
                           </div>
-                          {definition && definition.category === 'unique_persons' && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Unika
-                            </div>
-                          )}
-                        </TableCell>
+                        </TableHead>
                       );
                     })}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Paginering */}
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Visa</span>
-              <Select
-                value={pageSize.toString()}
-                onValueChange={(value) => setPageSize(Number(value))}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value.toString()}>
-                      {option.label}
-                    </SelectItem>
+                </TableHeader>
+                <TableBody>
+                  {paginatedData.map((item, index) => (
+                    <TableRow key={`${item.year}_${item.month}`}>
+                      <TableCell className="font-medium">
+                        {getMonthName(item.month)} {item.year}
+                      </TableCell>
+                      {selectedMetrics.map(metric => (
+                        <TableCell 
+                          key={metric}
+                          className="text-right"
+                        >
+                          <div className="flex items-center justify-end gap-1">
+                            {formatValue(item.metrics[metric])}
+                            {pageStats?.metrics[metric]?.bestMonth && 
+                             pageStats.metrics[metric].bestMonth.year === item.year &&
+                             pageStats.metrics[metric].bestMonth.month === item.month && (
+                              <span className="text-yellow-600" title="Bästa värde för denna sida">🏆</span>
+                            )}
+                            {pageStats?.metrics[metric]?.worstMonth && 
+                             pageStats.metrics[metric].worstMonth.year === item.year &&
+                             pageStats.metrics[metric].worstMonth.month === item.month && (
+                              <span className="text-gray-500" title="Sämsta värde för denna sida">📉</span>
+                            )}
+                          </div>
+                        </TableCell>
+                      ))}
+                    </TableRow>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex items-center gap-6">
-              <span className="text-sm text-muted-foreground">
-                Visar {((currentPage - 1) * pageSize) + 1} till {Math.min(currentPage * pageSize, sortedData.length)} av {sortedData.length}
-              </span>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
+                </TableBody>
+              </Table>
+
+              {/* Paginering */}
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Visa:</span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => {
+                      setPageSize(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map(option => (
+                        <SelectItem key={option.value} value={option.value.toString()}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <span className="text-sm">
-                  Sida {currentPage} av {totalPages}
-                </span>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-6">
+                  <span className="text-sm text-muted-foreground">
+                    Visar {((currentPage - 1) * pageSize) + 1} till {Math.min(currentPage * pageSize, sortedData.length)} av {sortedData.length}
+                  </span>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    <span className="text-sm">
+                      Sida {currentPage} av {totalPages}
+                    </span>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
           
           {/* Förklaring av ikoner */}
           <div className="mt-4 p-3 bg-muted/30 rounded-lg">

@@ -8,25 +8,92 @@ import {
   ArrowUpDown, 
   ArrowUp, 
   ArrowDown,
-  Calendar, 
-  Users,
-  TrendingUp,
+  Calendar,
+  BarChart3,
   FileDown,
   FileSpreadsheet,
   AlertCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Target,
+  Activity
 } from 'lucide-react';
+
+// Sveriges Radio kanal-färger (från original)
+const CHANNEL_COLORS = {
+  'P1': '#0066cc', // Blå
+  'P2': '#ff6600', // Orange
+  'P3': '#00cc66', // Grön
+  'P4': '#cc33cc', // Magenta/Lila
+  'EKOT': '#005eb8', // Mörk blå (Ekot/Radio Sweden)
+  'RADIOSPORTEN': '#1c5c35', // Mörk grön (Radiosporten)
+  'SR': '#000000',  // Svart för Sveriges Radio
+  'default': '#000000' // Svart som fallback
+};
+
+// ProfileIcon-komponent för Sveriges Radio kanaler (KORRIGERAD)
+const ProfileIcon = ({ pageName }) => {
+  // Extrahera namn från sidnamnet
+  const name = pageName || 'Okänd';
+  
+  // Bestäm färg och kanal-text baserat på kanalnamn i sidnamnet
+  let backgroundColor = CHANNEL_COLORS.default;
+  let channelText = '';
+  
+  // Kontrollera om sidnamnet innehåller något av kanalnamnen
+  const nameLower = name.toLowerCase();
+  
+  if (nameLower.includes('ekot') || nameLower.includes('radio sweden')) {
+    backgroundColor = CHANNEL_COLORS.EKOT;
+    channelText = 'E';
+  } else if (nameLower.includes('radiosporten') || nameLower.includes('radio sporten')) {
+    backgroundColor = CHANNEL_COLORS.RADIOSPORTEN;
+    channelText = 'RS';
+  } else if (nameLower.includes('p1')) {
+    backgroundColor = CHANNEL_COLORS.P1;
+    channelText = 'P1';
+  } else if (nameLower.includes('p2')) {
+    backgroundColor = CHANNEL_COLORS.P2;
+    channelText = 'P2';
+  } else if (nameLower.includes('p3')) {
+    backgroundColor = CHANNEL_COLORS.P3;
+    channelText = 'P3';
+  } else if (nameLower.includes('p4')) {
+    backgroundColor = CHANNEL_COLORS.P4;
+    channelText = 'P4';
+  } else if (nameLower.includes('sveriges radio') && !nameLower.includes('p1') && 
+            !nameLower.includes('p2') && !nameLower.includes('p3') && !nameLower.includes('p4')) {
+    // Sveriges Radio, men inte specifik kanal
+    backgroundColor = CHANNEL_COLORS.SR;
+    channelText = 'SR';
+  } else {
+    // Fallback: använd första bokstaven om ingen kanal hittas
+    channelText = name.charAt(0).toUpperCase();
+  }
+  
+  // Bestäm textfärg baserat på bakgrundsfärgen (vit text på mörka bakgrunder)
+  const isLightBackground = backgroundColor === CHANNEL_COLORS.P2 || backgroundColor === CHANNEL_COLORS.P3;
+  const textColor = isLightBackground ? 'text-black' : 'text-white';
+  
+  return (
+    <div 
+      className={`flex-shrink-0 w-6 h-6 rounded-sm flex items-center justify-center text-xs font-bold ${textColor}`}
+      style={{ backgroundColor }}
+      title={pageName}
+    >
+      {channelText}
+    </div>
+  );
+};
 
 // Sidstorlekar för paginering
 const PAGE_SIZE_OPTIONS = [
   { value: 10, label: '10 per sida' },
   { value: 25, label: '25 per sida' },
-  { value: 50, label: '50 per sida' },
-  { value: 100, label: '100 per sida' }
+  { value: 50, label: '50 per sida' }
 ];
 
-// KORRIGERAT: Tillgängliga metrics (utan Status & Kommentarer)
+// KORRIGERAT: Tillgängliga metrics för månadsvy
 const AVAILABLE_METRICS = [
   { key: 'reach', label: 'Räckvidd', canSum: false },
   { key: 'engagements', label: 'Engagemang', canSum: true },
@@ -34,7 +101,7 @@ const AVAILABLE_METRICS = [
   { key: 'publications', label: 'Publiceringar', canSum: true }
 ];
 
-// Metric-definitioner (korrigerade - utan Status & Kommentarer)
+// Metric-definitioner (korrigerade)
 const METRIC_DEFINITIONS = {
   reach: { displayName: 'Räckvidd', canSumAcrossPages: false, category: 'unique_persons' },
   engagements: { displayName: 'Engagemang', canSumAcrossPages: true, category: 'countable' },
@@ -251,6 +318,9 @@ function MonthlyComparisonView({ uploadedPeriods = [] }) {
     );
   };
 
+// DEL_1_SLUTAR_HÄR - Fortsätt med del 2 som börjar med handleExportCSV
+// DEL_2_BÖRJAR_HÄR - Fortsättning från del 1 med handleExportCSV
+
   // Export till CSV
   const handleExportCSV = () => {
     const headers = ['Sidnamn', 'Sido-ID', ...selectedMetrics.map(m => {
@@ -276,30 +346,45 @@ function MonthlyComparisonView({ uploadedPeriods = [] }) {
     
     const periodName = selectedPeriod ? 
       `${getMonthName(selectedPeriod.month)}_${selectedPeriod.year}` : 
-      'månadsanalys';
+      'månadsjämförelse';
       
-    link.setAttribute('download', `facebook_månadsanalys_${periodName}.csv`);
+    link.setAttribute('download', `Facebook_${periodName}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Återställ pagination när pageSize ändras
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [pageSize, selectedPeriod, selectedMetrics]);
+  // Formatera numeriska värden
+  const formatValue = (value) => {
+    if (value === null || value === undefined || isNaN(value)) return '-';
+    return new Intl.NumberFormat('sv-SE').format(value);
+  };
+
+  // Hitta bästa och sämsta värden för prestanda-highlighting
+  const getPerformanceClass = (metric, value, data) => {
+    if (!data || data.length < 2 || value === null || value === undefined) return '';
+    
+    const values = data.map(d => d.metrics[metric]).filter(v => v !== null && v !== undefined && !isNaN(v));
+    if (values.length < 2) return '';
+    
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    
+    if (value === max && max !== min) return 'bg-green-100 text-green-800 font-medium';
+    if (value === min && max !== min) return 'bg-red-100 text-red-800 font-medium';
+    return '';
+  };
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin h-8 w-8 border-b-2 border-facebook-500 mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Laddar månadsdata...</p>
-          </div>
-        </CardContent>
-      </Card>
+      <Alert>
+        <Activity className="h-4 w-4" />
+        <AlertTitle>Laddar data</AlertTitle>
+        <AlertDescription>
+          Analyserar månadsdata för Facebook-sidor...
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -307,8 +392,10 @@ function MonthlyComparisonView({ uploadedPeriods = [] }) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Fel vid laddning av data</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
+        <AlertTitle>Fel</AlertTitle>
+        <AlertDescription>
+          {error}
+        </AlertDescription>
       </Alert>
     );
   }
@@ -317,9 +404,9 @@ function MonthlyComparisonView({ uploadedPeriods = [] }) {
     return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Ingen data tillgänglig</AlertTitle>
+        <AlertTitle>Ingen data</AlertTitle>
         <AlertDescription>
-          Ladda upp Facebook CSV-filer för att visa månadsanalys.
+          Ladda upp CSV-filer för att visa månadsvis jämförelse av Facebook-sidor.
         </AlertDescription>
       </Alert>
     );
@@ -332,7 +419,7 @@ function MonthlyComparisonView({ uploadedPeriods = [] }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-facebook-500" />
-            Månadsanalys
+            Månadsvis jämförelse
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -340,10 +427,10 @@ function MonthlyComparisonView({ uploadedPeriods = [] }) {
             <div>
               <label className="text-sm font-medium mb-2 block">Välj månad</label>
               <Select 
-                value={selectedPeriod ? `${selectedPeriod.year}-${selectedPeriod.month}` : ''}
+                value={selectedPeriod ? `${selectedPeriod.year}_${selectedPeriod.month}` : ''}
                 onValueChange={(value) => {
-                  const [year, month] = value.split('-').map(Number);
-                  setSelectedPeriod({ year, month });
+                  const [year, month] = value.split('_');
+                  setSelectedPeriod({ year: parseInt(year), month: parseInt(month) });
                 }}
               >
                 <SelectTrigger>
@@ -351,20 +438,21 @@ function MonthlyComparisonView({ uploadedPeriods = [] }) {
                 </SelectTrigger>
                 <SelectContent>
                   {uploadedPeriods.map(period => (
-                    <SelectItem 
-                      key={`${period.year}-${period.month}`} 
-                      value={`${period.year}-${period.month}`}
-                    >
+                    <SelectItem key={`${period.year}_${period.month}`} value={`${period.year}_${period.month}`}>
                       {getMonthName(period.month)} {period.year}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedPeriod && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Visar data för {getMonthName(selectedPeriod.month)} {selectedPeriod.year}
+                </p>
+              )}
             </div>
             
             <div>
               <label className="text-sm font-medium mb-2 block">Metrics att visa</label>
-              {/* KORRIGERAT: Checkboxar istället för knappar */}
               <div className="flex flex-wrap gap-3">
                 {AVAILABLE_METRICS.map(metric => {
                   const isSelected = selectedMetrics.includes(metric.key);
@@ -377,193 +465,207 @@ function MonthlyComparisonView({ uploadedPeriods = [] }) {
                         onChange={() => handleMetricToggle(metric.key)}
                         className="h-4 w-4 text-facebook-500 border-gray-300 rounded focus:ring-facebook-500"
                       />
-                      <span className="text-sm font-medium text-gray-700">
-                        {metric.label}
-                      </span>
+                      <span className="text-sm font-medium">{metric.label}</span>
+                      {!metric.canSum && (
+                        <span className="text-xs text-orange-600 font-medium">*</span>
+                      )}
                     </label>
                   );
                 })}
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                * = Kan inte summeras över sidor (unika personer per månad)
+              </p>
             </div>
           </div>
-          
+
           {/* Period-sammandrag */}
           {periodSummary && (
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <h4 className="font-medium mb-3 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Sammandrag för {selectedPeriod ? `${getMonthName(selectedPeriod.month)} ${selectedPeriod.year}` : ''}
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div className="text-center">
-                  <div className="font-bold text-lg text-facebook-600">{periodSummary.totalPages}</div>
-                  <div className="text-muted-foreground">Facebook-sidor</div>
+            <div className="grid md:grid-cols-4 gap-4 mb-6 p-4 bg-muted/30 rounded-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-facebook-600">
+                  {periodSummary.totalPages}
                 </div>
-                {selectedMetrics.slice(0, 3).map(metric => {
-                  const summary = periodSummary.metrics[metric];
-                  const definition = METRIC_DEFINITIONS[metric];
-                  
-                  if (!summary || !definition) return null;
-                  
-                  const value = definition.canSumAcrossPages ? summary.total : summary.average;
-                  const label = definition.canSumAcrossPages ? 'Totalt' : 'Genomsnitt';
-                  
-                  return (
-                    <div key={metric} className="text-center">
-                      <div className="font-bold text-lg text-facebook-600">
-                        {value ? value.toLocaleString() : 0}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {label} {definition.displayName.toLowerCase()}
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="text-sm text-muted-foreground">Facebook-sidor</div>
               </div>
+              
+              <div className="text-center">
+                <div className="text-lg font-semibold">
+                  {getMonthName(periodSummary.period.month)} {periodSummary.period.year}
+                </div>
+                <div className="text-sm text-muted-foreground">Vald period</div>
+              </div>
+              
+              {selectedMetrics.slice(0, 2).map(metric => {
+                const metricData = periodSummary.metrics[metric];
+                const definition = METRIC_DEFINITIONS[metric];
+                
+                if (!metricData || !definition) return null;
+                
+                return (
+                  <div key={metric} className="text-center">
+                    <div className="text-lg font-semibold">
+                      {definition.canSumAcrossPages ? 
+                        formatValue(metricData.total) : 
+                        formatValue(metricData.average)
+                      }
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {definition.canSumAcrossPages ? `Total ${definition.displayName}` : `Snitt ${definition.displayName}`}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Huvud-tabell */}
+      {/* Månadsdata-tabell */}
       <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-facebook-500" />
-              Facebook-sidor ({sortedData.length})
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleExportCSV}>
-                <FileDown className="mr-2 h-4 w-4" />
-                CSV
-              </Button>
-              <Button variant="outline" onClick={() => handleExportCSV()}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Excel
-              </Button>
-            </div>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            {selectedPeriod ? 
+              `${getMonthName(selectedPeriod.month)} ${selectedPeriod.year} - Alla sidor` : 
+              'Månadsdata'}
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button onClick={handleExportCSV} variant="outline" size="sm">
+              <FileDown className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 min-w-[200px]"
-                    onClick={() => handleSort('pageName')}
-                  >
-                    <div className="flex items-center">
-                      Sidnamn {getSortIcon('pageName')}
-                    </div>
-                  </TableHead>
-                  
-                  {selectedMetrics.map(metric => {
-                    const definition = METRIC_DEFINITIONS[metric];
-                    return (
-                      <TableHead 
-                        key={metric}
-                        className="cursor-pointer hover:bg-muted/50 text-right"
-                        onClick={() => handleSort(metric)}
-                      >
-                        <div className="flex items-center justify-end">
-                          {definition ? definition.displayName : metric}
-                          {getSortIcon(metric)}
-                        </div>
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedData.map((item, index) => (
-                  <TableRow key={item.page.pageId || index}>
-                    <TableCell className="font-medium">
-                      <div className="min-w-0">
-                        <div className="truncate" title={item.page.pageName}>
-                          {item.page.pageName}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          ID: {item.page.pageId}
-                        </div>
+          {periodData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              Ingen data tillgänglig för vald månad
+            </p>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead 
+                      className="cursor-pointer select-none"
+                      onClick={() => handleSort('pageName')}
+                    >
+                      <div className="flex items-center">
+                        Sidnamn
+                        {getSortIcon('pageName')}
                       </div>
-                    </TableCell>
-                    
+                    </TableHead>
                     {selectedMetrics.map(metric => {
-                      const value = item.metrics[metric] || 0;
                       const definition = METRIC_DEFINITIONS[metric];
-                      
                       return (
-                        <TableCell key={metric} className="text-right">
-                          <div className="font-mono">
-                            {typeof value === 'number' ? value.toLocaleString() : value}
+                        <TableHead 
+                          key={metric}
+                          className="text-right cursor-pointer select-none"
+                          onClick={() => handleSort(metric)}
+                        >
+                          <div className="flex items-center justify-end">
+                            {definition?.displayName || metric}
+                            {getSortIcon(metric)}
+                            {!definition?.canSumAcrossPages && (
+                              <span className="ml-1 text-orange-600">*</span>
+                            )}
                           </div>
-                          {definition && definition.category === 'unique_persons' && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Unika personer
-                            </div>
-                          )}
-                        </TableCell>
+                        </TableHead>
                       );
                     })}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Paginering */}
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Visa</span>
-              <Select
-                value={pageSize.toString()}
-                onValueChange={(value) => setPageSize(Number(value))}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value.toString()}>
-                      {option.label}
-                    </SelectItem>
+                </TableHeader>
+                <TableBody>
+                  {paginatedData.map((item, index) => (
+                    <TableRow key={item.page.pageId}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <ProfileIcon pageName={item.page.pageName} />
+                          <span>{item.page.pageName}</span>
+                        </div>
+                      </TableCell>
+                      {selectedMetrics.map(metric => (
+                        <TableCell 
+                          key={metric}
+                          className="text-right"
+                        >
+                          <div className="flex items-center justify-end gap-1">
+                            {formatValue(item.metrics[metric])}
+                            {periodSummary?.metrics[metric] && 
+                             item.metrics[metric] === periodSummary.metrics[metric].max && 
+                             periodSummary.metrics[metric].max !== periodSummary.metrics[metric].min && (
+                              <span className="text-yellow-600" title="Bästa värde för denna månad">🏆</span>
+                            )}
+                            {periodSummary?.metrics[metric] && 
+                             item.metrics[metric] === periodSummary.metrics[metric].min && 
+                             periodSummary.metrics[metric].max !== periodSummary.metrics[metric].min && (
+                              <span className="text-gray-500" title="Lägsta värde för denna månad">📉</span>
+                            )}
+                          </div>
+                        </TableCell>
+                      ))}
+                    </TableRow>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex items-center gap-6">
-              <span className="text-sm text-muted-foreground">
-                Visar {((currentPage - 1) * pageSize) + 1} till {Math.min(currentPage * pageSize, sortedData.length)} av {sortedData.length}
-              </span>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
+                </TableBody>
+              </Table>
+
+              {/* Paginering */}
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Visa:</span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => {
+                      setPageSize(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map(option => (
+                        <SelectItem key={option.value} value={option.value.toString()}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <span className="text-sm">
-                  Sida {currentPage} av {totalPages}
-                </span>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-6">
+                  <span className="text-sm text-muted-foreground">
+                    Visar {((currentPage - 1) * pageSize) + 1} till {Math.min(currentPage * pageSize, sortedData.length)} av {sortedData.length}
+                  </span>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    <span className="text-sm">
+                      Sida {currentPage} av {totalPages}
+                    </span>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
           
           {/* Varning för icke-summerbara metrics */}
           {selectedMetrics.some(m => METRIC_DEFINITIONS[m]?.category === 'unique_persons') && (

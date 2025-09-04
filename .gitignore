@@ -78,3 +78,5 @@ $RECYCLE.BIN/
 # Editor backups
 *.bak
 *~
+# Ignore local backup folder
+backup/
