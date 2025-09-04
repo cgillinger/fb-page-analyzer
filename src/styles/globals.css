@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 36% 96%; /* Ljusgrå bakgrund */
+    --foreground: 222.2 84% 4.9%; /* Mörk text */
+    
+    --primary: 216 89% 61%; /* Facebook blå som primärfärg */
+    --primary-foreground: 0 0% 100%; /* Vit text på blå bakgrund */
+
+    --secondary: 216 33% 89%; /* Ljusblå/grå */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* Mörk text */
+
+    --muted: 215 32% 85%; /* Ljusare grå */
+    --muted-foreground: 215.4 16.3% 46.9%; /* Mörkare text */
+
+    --border: 214 15% 82%;
+    --input: 214 15% 82%;
+    --ring: 216 89% 61%; /* Facebook blå för focus rings */
+    
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    
+    --accent: 210 40% 94%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --radius: 0.75rem;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* 🌟 KOMPOSITIONER FÖR FACEBOOK API ANALYSER */
+@layer components {
+  
+  /* 🌍 Global container för centrering och layout */
+  .container {
+    @apply max-w-7xl mx-auto px-6;
+  }
+
+  .section {
+    @apply mb-12;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold text-gray-800 mb-4;
+  }
+
+  /* 🏷 KORTSTIL - Används för tidserie-visualiseringar och analyser */
+  .timeseries-card {
+    @apply bg-white shadow-xl rounded-lg p-6 border border-gray-200;
+  }
+
+  /* 📊 TABELLSTIL - Modern och ren för månadsdata */
+  .data-table {
+    @apply min-w-full bg-white shadow-md rounded-xl;
+  }
+
+  .data-table thead {
+    @apply bg-facebook-500 text-white;
+  }
+
+  .data-table th {
+    @apply px-6 py-3 text-left text-sm font-semibold;
+  }
+
+  .data-table td {
+    @apply px-6 py-4 border-gray-200 border text-gray-800;
+  }
+
+  .data-table tr:nth-child(even) {
+    @apply bg-gray-50;
+  }
+
+  .data-table tr:hover {
+    @apply bg-facebook-50;
+  }
+
+  /* 🔘 KNAPPAR - Primär, Sekundär, Facebook brand */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-semibold transition duration-200;
+  }
+
+  .btn-facebook {
+    @apply bg-facebook-500 text-white hover:bg-facebook-600 active:bg-facebook-700;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+  }
+
+  .btn-outline {
+    @apply border border-gray-300 text-gray-800 hover:bg-gray-100;
+  }
+
+  /* 📝 INPUT-FÄLT & DROPDOWN för tidserie-filter */
+  .period-input {
+    @apply w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-facebook-500;
+  }
+
+  .period-select {
+    @apply w-full px-4 py-2 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-facebook-500;
+  }
+
+  /* 📌 FLEXBOX FÖR RUBRIKER OCH FACEBOOK BRANDING */
+  .header {
+    @apply flex justify-between items-center mb-6;
+  }
+
+  .header-title {
+    @apply text-2xl font-bold text-gray-800;
+  }
+
+  .header-subtitle {
+    @apply text-gray-500 text-sm mt-1;
+  }
+
+  .facebook-brand {
+    @apply flex items-center gap-2 text-facebook-500;
+  }
+
+  /* 📊 TIDSERIE-SPECIFIKA STILAR */
+  .trend-positive {
+    @apply text-green-600 bg-green-50 px-2 py-1 rounded-md text-sm font-medium;
+  }
+
+  .trend-negative {
+    @apply text-red-600 bg-red-50 px-2 py-1 rounded-md text-sm font-medium;
+  }
+
+  .trend-neutral {
+    @apply text-gray-600 bg-gray-50 px-2 py-1 rounded-md text-sm font-medium;
+  }
+
+  /* 🔢 MÅNADSDATA-INDIKATOR */
+  .month-indicator {
+    @apply inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-facebook-100 text-facebook-700;
+  }
+
+  /* ⚡ HOVER-EFFEKTER */
+  .hover-effect {
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  /* 🖥 RESPONSIVITET */
+  @media (max-width: 768px) {
+    .container {
+      @apply px-4;
+    }
+    
+    .data-table th,
+    .data-table td {
+      @apply px-3 py-2;
+    }
+  }
+}
+
+/* 📈 ANIMATIONER FÖR TIDSERIE-DATA */
+@layer utilities {
+  .animate-counter {
+    animation: counter 2s ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+}
+
+@keyframes counter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

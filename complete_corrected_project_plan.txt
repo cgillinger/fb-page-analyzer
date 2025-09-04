@@ -1,0 +1,457 @@
+# 🎯 PROJEKTPLAN: Facebook API Data Analyser (fb-page-analyzer)
+
+## 📋 PROJEKTÖVERSIKT
+
+**Mål:** Skapa tidserie-baserad webbapp för analys av Facebook API-data (månadsvis sidstatistik)  
+**Dataformat:** CSV-filer med format `FB_YYYY_MM.csv`  
+**Arkitektur:** Modulär, anti-monolit design  
+**UI-titel:** "Facebook API data analyser"  
+**Mapp/projekt namn:** `fb-page-analyzer`
+
+---
+
+## 🗂️ SLUTGILTIG PROJEKTSTRUKTUR (KORRIGERAD)
+
+```
+fb-page-analyzer/
+├── src/
+│   ├── core/                      # Kärnlogik (datamodeller, processing)
+│   │   ├── timeseries_models.js   # Datastrukturer för tidsserier
+│   │   ├── period_extractor.js    # Extrahera datum från filnamn
+│   │   └── csv_processor.js       # Bearbeta månads-CSV:er
+│   ├── services/                  # Business logic
+│   │   ├── timeseries_analytics.js # Tidserie-beräkningar
+│   │   ├── reach_calculator.js    # Hantera icke-summerbar Reach
+│   │   └── aggregation_service.js # Korrekta aggregeringar över tid
+│   ├── components/                # React-komponenter
+│   │   ├── TimeseriesUploader.jsx # Multi-CSV uppladdning
+│   │   ├── PeriodSelector.jsx     # Välj månader att analysera
+│   │   ├── PageTimeseriesView.jsx # Sidor över tid
+│   │   ├── MonthlyComparisonView.jsx # Jämför månader
+│   │   ├── TrendAnalysisView.jsx  # Trend-visualiseringar
+│   │   └── ui/                    # UI-komponenter (från original)
+│   │       ├── button.jsx
+│   │       ├── card.jsx
+│   │       ├── table.jsx
+│   │       ├── input.jsx
+│   │       ├── select.jsx
+│   │       ├── alert.jsx
+│   │       └── tabs.jsx
+│   ├── utils/                     # Hjälpfunktioner
+│   │   ├── timeseries_storage.js  # Månadsvis lagring
+│   │   ├── period_validator.js    # Validera filnamn och struktur
+│   │   └── metric_categorizer.js  # Kategorisera metrics
+│   ├── lib/
+│   │   └── utils.js              # Generella utilities
+│   ├── styles/
+│   │   └── globals.css           # Global styling
+│   ├── main.jsx                  # Entry point (VIKTIGT: Behövs för Vite)
+│   └── App.jsx                   # Huvudkomponent
+├── public/
+│   ├── favicon.ico
+│   └── Icon.png
+├── index.html                    # ⚠️ KRITISKT: Ligger i projektrot, INTE i public/
+├── package.json
+├── vite.config.js
+├── tailwind.config.js
+├── postcss.config.js            # ⚠️ KRITISKT: Måste vara ES Module format
+├── .gitignore
+└── README.md
+```
+
+---
+
+## 📊 DATASPECIFIKATION
+
+### CSV-STRUKTUR (per månads-fil):
+```csv
+Page,Page ID,Reach,Engaged Users,Engagements,Reactions,Publications,Status,Comment
+```
+
+### KRITISKA DATAHANTERINGSREGLER:
+- **Reach & Engaged Users:** Kan ALDRIG summeras över månader (unika personer per månad)
+- **Engagements, Reactions, Publications, Comment:** Kan summeras över månader
+- **Period:** Extraheras från filnamn `FB_YYYY_MM.csv` (FB_2025_08.csv = Augusti 2025)
+- **En CSV = En månads aggregerad data för alla Facebook-sidor**
+- **73 rader per fil** (en rad per Facebook-sida)
+
+### EXEMPEL PÅ TILLGÄNGLIG TESTDATA:
+- `FB_2025_08.csv` - Augusti 2025 data
+- `FB_2025_02.csv` - Februari 2025 data
+
+---
+
+# 🚀 FAS-UPPDELNING (8 FASER TOTALT)
+
+## **FAS 1: GRUNDKONFIGURATION** ✅ KOMPLETT
+**Mål:** Sätt upp projekt med konfiguration och bas-UI komponenter  
+**Chattar:** 1 chatt  
+**Tidsuppskattning:** 30-45 min  
+
+### DELIVERABLES (✅ KLARA):
+- [x] Komplett projektstruktur skapad
+- [x] package.json med alla dependencies
+- [x] vite.config.js, tailwind.config.js, postcss.config.js (ES Module format)
+- [x] index.html med korrekt titel "Facebook API data analyser" (i projektrot)
+- [x] main.jsx som entry point för Vite
+- [x] UI-komponenter kopierade från original (button, card, table, etc.)
+- [x] lib/utils.js med tidserie-tillägg
+- [x] globals.css med Facebook brand colors
+- [x] .gitignore, README.md
+- [x] Bas App.jsx struktur som fungerar och är testad
+
+### KORRIGERAT PROJEKTSTRUKTUR-KOMMANDO:
+```bash
+PROJECT_NAME="fb-page-analyzer"
+mkdir -p $PROJECT_NAME/{src/{core,services,components/{ui},utils,lib,styles},public}
+
+# Core business logic
+touch $PROJECT_NAME/src/core/{timeseries_models.js,period_extractor.js,csv_processor.js}
+
+# Services  
+touch $PROJECT_NAME/src/services/{timeseries_analytics.js,reach_calculator.js,aggregation_service.js}
+
+# Main components
+touch $PROJECT_NAME/src/components/{TimeseriesUploader.jsx,PeriodSelector.jsx,PageTimeseriesView.jsx,MonthlyComparisonView.jsx,TrendAnalysisView.jsx}
+
+# UI components
+touch $PROJECT_NAME/src/components/ui/{button.jsx,card.jsx,table.jsx,input.jsx,select.jsx,alert.jsx,tabs.jsx}
+
+# Utils och lib
+touch $PROJECT_NAME/src/utils/{timeseries_storage.js,period_validator.js,metric_categorizer.js}
+touch $PROJECT_NAME/src/lib/utils.js
+
+# Styling
+touch $PROJECT_NAME/src/styles/globals.css
+
+# Huvudfiler
+touch $PROJECT_NAME/src/{main.jsx,App.jsx}
+
+# Konfiguration - VIKTIGT: index.html i projektrot
+touch $PROJECT_NAME/{package.json,vite.config.js,tailwind.config.js,postcss.config.js}
+touch $PROJECT_NAME/{index.html,.gitignore,README.md}
+
+# Assets
+touch $PROJECT_NAME/public/{favicon.ico,Icon.png}
+
+echo "✅ KOMPLETT fb-page-analyzer struktur skapad (KORRIGERAD VERSION)!"
+```
+
+---
+
+## **FAS 2: DATAHANTERING (CORE)** 🔄
+**Mål:** Implementera kärnlogik för tidserie-datahantering  
+**Chattar:** 1 chatt  
+**Tidsuppskattning:** 45-60 min  
+
+### FÖRUTSÄTTNINGAR:
+- FAS 1 komplett (grundkonfiguration klar och testad)
+- CSV-filer tillgängliga för testning
+
+### DELIVERABLES:
+- [ ] timeseries_models.js (datastrukturer för Facebook-sidor och månadsdata)
+- [ ] period_extractor.js (extrahera år/månad från filnamn FB_YYYY_MM.csv)
+- [ ] csv_processor.js (parsa och validera CSV med 9 kolumner)
+- [ ] Enhetstester för alla funktioner
+- [ ] Hantering av felaktiga filnamn/data
+
+### START-PROMPT FÖR FAS 2:
+```
+Jag startar FAS 2 av fb-page-analyzer projektet. FAS 1 (grundkonfiguration) är komplett och testad.
+
+VIKTIGT: index.html ligger i projektets rot (inte public/) och postcss.config.js använder ES Module format.
+
+Implementera core-skripten för datahantering:
+1. timeseries_models.js - datastrukturer för Facebook-sidor och tidsserier
+2. period_extractor.js - extrahera år/månad från filnamn som FB_2025_08.csv → {year: 2025, month: 8}
+3. csv_processor.js - parsa CSV med kolumner: Page,Page ID,Reach,Engaged Users,Engagements,Reactions,Publications,Status,Comment
+
+Dessa CSV-filer finns för testning: FB_2025_08.csv, FB_2025_02.csv (73 rader vardera)
+Använd Papa Parse för CSV-hantering som i originalappen.
+
+Leverera max 2 filer per omgång enligt projektinstruktionerna.
+```
+
+---
+
+## **FAS 3: BUSINESS LOGIC (SERVICES)** 🔄
+**Mål:** Implementera beräkningslogik och aggregeringar  
+**Chattar:** 1 chatt  
+**Tidsuppskattning:** 45-60 min  
+
+### FÖRUTSÄTTNINGAR:
+- FAS 2 komplett (core datahantering klar)
+- CSV test-data validerad
+
+### DELIVERABLES:
+- [ ] timeseries_analytics.js (grundläggande analys och trend-beräkningar)
+- [ ] reach_calculator.js (hantera icke-summerbar Reach korrekt)
+- [ ] aggregation_service.js (summera över månader, beräkna medelvärden)
+- [ ] Korrekt hantering av summerbara vs icke-summerbara metrics
+- [ ] Trend-beräkningar (månadsvis förändring i procent)
+
+### START-PROMPT FÖR FAS 3:
+```
+Jag startar FAS 3 av fb-page-analyzer projektet. FAS 1-2 är kompletta.
+
+Implementera services för business logic:
+1. timeseries_analytics.js - grundläggande analysverktyg och trend-beräkningar
+2. reach_calculator.js - hantera Reach som ALDRIG kan summeras över månader (unika personer)
+3. aggregation_service.js - summera Engagements/Reactions/Publications över månader, beräkna genomsnitt för Reach
+
+KRITISKT: Reach och Engaged Users är unika personer per månad och kan aldrig adderas.
+Andra metrics (Engagements, Reactions, Publications, Comment) kan summeras över tid.
+
+Leverera max 2 filer per omgång enligt projektinstruktionerna.
+```
+
+---
+
+## **FAS 4: UTILITIES OCH LAGRING** 🔄
+**Mål:** Implementera datalagring och valideringsfunktioner  
+**Chattar:** 1 chatt  
+**Tidsuppskattning:** 30-45 min  
+
+### FÖRUTSÄTTNINGAR:
+- FAS 3 komplett (business logic klar)
+- Services testade och fungerar
+
+### DELIVERABLES:
+- [ ] timeseries_storage.js (lagra månadsdata i localStorage/IndexedDB)
+- [ ] period_validator.js (validera filnamn FB_YYYY_MM.csv och dataformat)
+- [ ] metric_categorizer.js (kategorisera summerbara vs icke-summerbara metrics)
+- [ ] Error handling för korrupta data
+- [ ] Storage quota management
+
+### START-PROMPT FÖR FAS 4:
+```
+Jag startar FAS 4 av fb-page-analyzer projektet. FAS 1-3 är kompletta.
+
+Implementera utilities och lagring:
+1. timeseries_storage.js - lagra månadsdata, hantera storage limits
+2. period_validator.js - validera FB_YYYY_MM.csv format och CSV-innehåll (9 kolumner)
+3. metric_categorizer.js - definiera vilka metrics som kan summeras vs ej
+
+Återanvänd lagringsstrategier från originalappen (webStorageService.js) men anpassa för månadsdata.
+Ingen kolumnmappning behövs - hårdkoda kolumnnamnen från specifikationen.
+
+Leverera max 2 filer per omgång enligt projektinstruktionerna.
+```
+
+---
+
+## **FAS 5: UPLOAD OCH DATAFLÖDE** 🔄
+**Mål:** Implementera CSV-uppladdning och initial datavisning  
+**Chattar:** 1 chatt  
+**Tidsuppskattning:** 45-60 min  
+
+### FÖRUTSÄTTNINGAR:
+- FAS 4 komplett (utilities och lagring klar)
+- Core och services testade
+
+### DELIVERABLES:
+- [ ] TimeseriesUploader.jsx (drag-drop för multiple CSV:er)
+- [ ] Filnamnsvalidering (FB_YYYY_MM.csv format)
+- [ ] Progress indicators för upload
+- [ ] Integration med core/services från tidigare faser
+- [ ] Initial datavisning efter upload (lista över uppladdade månader)
+- [ ] Error handling och user feedback
+
+### START-PROMPT FÖR FAS 5:
+```
+Jag startar FAS 5 av fb-page-analyzer projektet. FAS 1-4 är kompletta.
+
+Implementera TimeseriesUploader.jsx:
+1. Drag-drop interface för multiple CSV-filer
+2. Validera filnamn enligt FB_YYYY_MM.csv format
+3. Progress indicators och error handling
+4. Integration med core och services från tidigare faser
+5. Initial lista över uppladdade månader med grundstatistik
+
+Återanvänd design från originalappens FileUploader men anpassa för multiple filer.
+Använd samma UI-komponenter från fas 1.
+
+Leverera max 2 komponenter per omgång enligt projektinstruktionerna.
+```
+
+---
+
+## **FAS 6: HUVUDVISUALISERINGAR** 🔄
+**Mål:** Implementera primära datavisningar  
+**Chattar:** 1 chatt  
+**Tidsuppskattning:** 60-75 min  
+
+### FÖRUTSÄTTNINGAR:
+- FAS 5 komplett (upload fungerar)
+- Testdata uppladdad och validerad
+
+### DELIVERABLES:
+- [ ] PageTimeseriesView.jsx (en Facebook-sidas prestanda över tid)
+- [ ] MonthlyComparisonView.jsx (alla sidor för en specifik månad)
+- [ ] Tabeller med sortering och export (CSV/Excel)
+- [ ] Korrekt hantering av Reach vs summerbara metrics i UI
+- [ ] Tydlig markering av icke-summerbara värden
+
+### START-PROMPT FÖR FAS 6:
+```
+Jag startar FAS 6 av fb-page-analyzer projektet. FAS 1-5 är kompletta.
+
+Implementera huvudvisualiseringar:
+1. PageTimeseriesView.jsx - visa en Facebook-sidas utveckling över månader
+2. MonthlyComparisonView.jsx - jämför alla sidor för en specifik månad
+
+Återanvänd tabelldesign från originalappens AccountView/PostView.
+VIKTIGT: Visa tydligt att Reach inte kan summeras över månader (markera i UI).
+Inkludera export till CSV/Excel.
+
+Leverera max 2 komponenter per omgång enligt projektinstruktionerna.
+```
+
+---
+
+## **FAS 7: TREND-ANALYS** 🔄
+**Mål:** Implementera avancerade analysverktyg  
+**Chattar:** 1 chatt  
+**Tidsuppskattning:** 45-60 min  
+
+### FÖRUTSÄTTNINGAR:
+- FAS 6 komplett (huvudvisualiseringar fungerar)
+- Testdata med multiple månader
+
+### DELIVERABLES:
+- [ ] TrendAnalysisView.jsx (trend-visualiseringar och utvecklingsanalys)
+- [ ] PeriodSelector.jsx (välj månadsintervall för analys)
+- [ ] Trend-beräkningar (procentuell förändring månad-för-månad)
+- [ ] Best/worst performing sidor per period
+- [ ] Genomsnittsberäkningar över tid
+
+### START-PROMPT FÖR FAS 7:
+```
+Jag startar FAS 7 av fb-page-analyzer projektet. FAS 1-6 är kompletta.
+
+Implementera avancerade analysverktyg:
+1. TrendAnalysisView.jsx - visa trends och utveckling över månader
+2. PeriodSelector.jsx - välj vilka månader att inkludera i analysen
+
+Fokus på:
+- Procentuell förändring månad-för-månad per Facebook-sida
+- Ranking av bäst/sämst presterande sidor
+- Genomsnittlig utveckling över perioder
+
+Använd services från fas 3 för alla beräkningar.
+Leverera max 2 komponenter per omgång enligt projektinstruktionerna.
+```
+
+---
+
+## **FAS 8: INTEGRATION OCH FINPUTSNING** 🔄
+**Mål:** Slutföra appen med navigation och error handling  
+**Chattar:** 1 chatt  
+**Tidsuppskattning:** 30-45 min  
+
+### FÖRUTSÄTTNINGAR:
+- FAS 7 komplett (alla huvudkomponenter klara)
+- Alla faser testade individuellt
+
+### DELIVERABLES:
+- [ ] App.jsx final integration (tab-navigation mellan alla vyer)
+- [ ] Error boundaries och loading states
+- [ ] Memory management och performance-optimering
+- [ ] Final testing och bugfixes
+- [ ] README uppdatering med användningsinstruktioner
+- [ ] Deployment-redo applikation
+
+### START-PROMPT FÖR FAS 8:
+```
+Jag startar FAS 8 av fb-page-analyzer projektet. Alla tidigare faser (1-7) är kompletta.
+
+Slutför applikationen:
+1. App.jsx - integrera alla komponenter med tab-navigation som originalappen
+2. Error boundaries och loading states för robust användarupplevelse
+3. Final testing och bugfixes
+4. README uppdatering med användningsinstruktioner
+
+Använd samma navigationsdesign som originalappen (Tabs för olika vyer).
+Fokus på användarvänlighet och prestanda.
+
+Leverera max 2 filer per omgång enligt projektinstruktionerna.
+```
+
+---
+
+## 🔄 MELLAN-CHATTAR CHECKLISTA
+
+### INNAN DU STARTAR NY CHATT:
+1. ✅ Verifiera att föregående fas är 100% komplett
+2. ✅ Testa grundfunktionalitet i föregående fas
+3. ✅ Bekräfta att alla deliverables är levererade
+4. ✅ Identifiera eventuella dependencies till nästa fas
+
+### I BÖRJAN AV NY CHATT:
+1. ✅ Referera till denna projektplan
+2. ✅ Ange tydligt vilken fas du startar
+3. ✅ Bekräfta att förutsättningar från föregående fas är uppfyllda
+4. ✅ Använd exakt start-prompt från relevant fas
+
+### BACKUP-POLICY:
+- **Första filen i varje chatt:** Använd `ORIGINAL_` prefix
+- **Efterföljande filer:** Använd fas-specifikt prefix (t.ex. `fas2_core_`)
+- **Kritiska milstolpar:** Extra backup med `milestone_` prefix
+
+---
+
+## 📊 FRAMGÅNGSINDIKATORER
+
+### TEKNIK:
+- ✅ Ingen fil > 300 rader
+- ✅ Modulär arkitektur med tydlig separation
+- ✅ Korrekt hantering av summerbara vs icke-summerbara metrics
+- ✅ Robust error handling
+
+### ANVÄNDBARHET:
+- ✅ Samma visuella design som originalappen
+- ✅ Intuitive navigation och användargränssnitt  
+- ✅ Tydlig feedback för användaraktioner
+- ✅ Export-funktionalitet fungerar
+
+### DATA-INTEGRITET:
+- ✅ Reach summeras ALDRIG över månader
+- ✅ Korrekt periodidentifiering från filnamn
+- ✅ Validering av CSV-format och innehåll
+- ✅ Säker datalagring och återhämtning
+
+---
+
+## 🛠️ KRITISKA KONFIGURATIONER (FRÅN FAS 1 KORRIGERINGAR)
+
+### postcss.config.js MÅSTE vara ES Module:
+```javascript
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+```
+
+### main.jsx MÅSTE finnas som entry point:
+```javascript
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+import './styles/globals.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+```
+
+### index.html MÅSTE ligga i projektets rot (inte public/)
+
+---
+
+**📝 SLUTNOTERING:** Denna projektplan fungerar som kontrakt mellan chattar. Varje fas måste completed completely innan nästa påbörjas. Vid avvikelser, uppdatera projektplanen först.
+
+**STATUS:** FAS 1 KOMPLETT ✅ och testad | Redo för FAS 2 🚀
