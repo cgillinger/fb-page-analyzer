@@ -7,6 +7,7 @@ import { UploadCloud, BarChart3, TrendingUp, Calendar, Info, ArrowLeft } from 'l
 import TimeseriesUploader from './components/TimeseriesUploader';
 import PageTimeseriesView from './components/PageTimeseriesView';
 import MonthlyComparisonView from './components/MonthlyComparisonView';
+import TrendAnalysisView from './components/TrendAnalysisView';
 
 function App() {
   const [hasData, setHasData] = useState(false);
@@ -63,62 +64,49 @@ function App() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
         <div className="container py-4">
-          <div className="flex items-center justify-between">
-            <div className="facebook-brand flex items-center gap-3">
-              <BarChart3 className="h-8 w-8" />
-              <h1 className="text-2xl font-bold text-foreground">
-                Facebook API data analyser
-              </h1>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Tidserie-baserad analys av månadsstatistik
-            </div>
+          <div className="facebook-brand flex items-center gap-3">
+            <BarChart3 className="h-8 w-8" />
+            <h1 className="text-2xl font-bold text-foreground">
+              Facebook API data analyser
+            </h1>
           </div>
         </div>
       </header>
 
       <main className="container py-6">
-        <div className="grid gap-6">
-          {/* Informationssektion */}
-          <Alert variant="info" className="bg-facebook-50 border-facebook-200">
-            <Info className="h-4 w-4 text-facebook-600" />
-            <AlertTitle className="text-facebook-800">Välkommen till Facebook API data analyser</AlertTitle>
-            <AlertDescription className="text-facebook-700">
-              <p className="mb-2">
-                Detta verktyg analyserar månadsdata från Facebook API i CSV-format. 
-                Ladda upp filer som följer namnkonventionen <code className="bg-white px-1 rounded">FB_YYYY_MM.csv</code> 
-                (t.ex. FB_2025_08.csv för Augusti 2025).
-              </p>
-              <p className="font-medium">
-                VIKTIGT: Reach och Engaged Users kan aldrig summeras över månader (unika personer per månad).
-              </p>
-            </AlertDescription>
-          </Alert>
-
+        <div className="space-y-6">
           {!hasData ? (
-            /* Startskärm - när ingen data är uppladdad */
-            <div className="grid gap-6">
-              <Card className="timeseries-card">
+            /* Välkomstvy - innan data laddats upp */
+            <div className="space-y-6">
+              <Card>
                 <CardHeader className="text-center">
-                  <UploadCloud className="h-16 w-16 mx-auto mb-4 text-facebook-500" />
-                  <CardTitle className="text-2xl">Börja med att ladda upp CSV-filer</CardTitle>
-                  <p className="text-muted-foreground">
-                    Ladda upp en eller flera månads-CSV:er för att börja analysera Facebook-data över tid
-                  </p>
+                  <CardTitle className="text-2xl">Välkommen till Facebook API data analyser</CardTitle>
                 </CardHeader>
-                <CardContent className="text-center">
-                  <Button 
-                    variant="facebook" 
-                    size="lg" 
-                    onClick={() => setShowUploader(true)}
-                  >
-                    <UploadCloud className="mr-2 h-5 w-5" />
-                    Ladda upp CSV-filer
-                  </Button>
+                <CardContent className="text-center space-y-4">
+                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                    Analysera och visualisera utvecklingen av dina Facebook-sidor över tid. 
+                    Ladda upp månadsvis CSV-data från Facebook API för att komma igång.
+                  </p>
+                  
+                  <Alert className="max-w-2xl mx-auto">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>CSV-format som krävs</AlertTitle>
+                    <AlertDescription>
+                      Filnamn: <code>FB_YYYY_MM.csv</code> (ex: FB_2025_08.csv)<br/>
+                      Kolumner: Page, Page ID, Reach, Engaged Users, Engagements, Reactions, Publications, Status, Comment
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="pt-4">
+                    <Button size="lg" onClick={() => setShowUploader(true)}>
+                      <UploadCloud className="mr-2 h-5 w-5" />
+                      Ladda upp CSV-filer
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Förhandsvisning av kommande funktionalitet */}
+              {/* Feature preview */}
               <div className="grid md:grid-cols-3 gap-4">
                 <Card className="opacity-50">
                   <CardHeader>
@@ -127,7 +115,7 @@ function App() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground">
-                      Analysera prestanda för specifika månader och jämför mellan perioder
+                      Jämför alla Facebook-sidor för en specifik månad och identifiera toppresterare
                     </p>
                   </CardContent>
                 </Card>
@@ -169,39 +157,33 @@ function App() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-facebook-600">
-                        {uploadedPeriods.length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Månader</div>
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
+                    <div className="text-center p-3 bg-facebook-50 rounded-lg">
+                      <div className="text-2xl font-bold text-facebook-900">{uploadedPeriods.length}</div>
+                      <div className="text-sm text-facebook-700">Månader</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-facebook-600">
-                        {uploadedPeriods.reduce((total, period) => total + (period.pageCount || 0), 0)}
+                    <div className="text-center p-3 bg-facebook-50 rounded-lg">
+                      <div className="text-2xl font-bold text-facebook-900">
+                        {uploadedPeriods.reduce((acc, period) => acc + period.pageCount, 0)}
                       </div>
-                      <div className="text-sm text-muted-foreground">Totalt sidposter</div>
+                      <div className="text-sm text-facebook-700">Totalt dataposter</div>
                     </div>
-                    <div className="text-center">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setShowUploader(true)}
-                        className="w-full"
-                      >
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        Ladda mer data
-                      </Button>
+                    <div className="text-center p-3 bg-facebook-50 rounded-lg">
+                      <div className="text-2xl font-bold text-facebook-900">
+                        {uploadedPeriods.length > 0 ? Math.max(...uploadedPeriods.map(p => p.pageCount)) : 0}
+                      </div>
+                      <div className="text-sm text-facebook-700">Sidor per månad</div>
                     </div>
                   </div>
                   
                   {uploadedPeriods.length > 0 && (
-                    <div className="mt-4 pt-4 border-t">
-                      <h4 className="text-sm font-medium mb-2">Uppladdade perioder:</h4>
+                    <div>
+                      <div className="text-sm font-medium mb-2">Tillgängliga perioder:</div>
                       <div className="flex flex-wrap gap-2">
                         {uploadedPeriods.map((period, index) => (
                           <span 
                             key={index}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-facebook-50 text-facebook-700 border border-facebook-200"
+                            className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-facebook-50 text-facebook-700 border border-facebook-200"
                           >
                             {period.displayName} ({period.pageCount} sidor)
                           </span>
@@ -258,21 +240,7 @@ function App() {
                 </TabsContent>
 
                 <TabsContent value="trends" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Trendanalys</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-muted-foreground mb-4">
-                        TrendAnalysisView implementeras i FAS 7
-                      </p>
-                      {uploadedPeriods.length > 1 && (
-                        <div className="text-sm text-muted-foreground">
-                          Trendanalys tillgänglig för {uploadedPeriods.length} månader
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <TrendAnalysisView uploadedPeriods={uploadedPeriods} />
                 </TabsContent>
               </Tabs>
             </div>
