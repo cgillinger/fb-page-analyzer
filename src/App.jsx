@@ -1,33 +1,151 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from './components/ui/alert';
-import { UploadCloud, BarChart3, TrendingUp, Calendar, Info, ArrowLeft } from 'lucide-react';
+import { UploadCloud, BarChart3, TrendingUp, Calendar, Info, ArrowLeft, Trash2 } from 'lucide-react';
 import TimeseriesUploader from './components/TimeseriesUploader';
 import PageTimeseriesView from './components/PageTimeseriesView';
 import MonthlyComparisonView from './components/MonthlyComparisonView';
 import TrendAnalysisView from './components/TrendAnalysisView';
+import { getAllPeriods, getPeriodData, clearAllData } from './utils/timeseries_storage';
 
 function App() {
   const [hasData, setHasData] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [activeTab, setActiveTab] = useState('upload');
   const [uploadedPeriods, setUploadedPeriods] = useState([]);
+  const [loadingExistingData, setLoadingExistingData] = useState(true);
+  const [clearingData, setClearingData] = useState(false);
+
+  // Ladda befintlig data vid app-start
+  useEffect(() => {
+    loadExistingData();
+  }, []);
+
+  const loadExistingData = async () => {
+    try {
+      setLoadingExistingData(true);
+      console.log('Laddar befintlig data från storage...');
+      
+      const periods = await getAllPeriods();
+      console.log('Hittade perioder i storage:', periods);
+      
+      if (periods.length > 0) {
+        // Konvertera storage-format till uploadedPeriods-format
+        const periodsWithData = await Promise.all(
+          periods.map(async (period) => {
+            const storageData = await getPeriodData(period.year, period.month);
+            
+            // Konvertera från storage-format till CSV-format som komponenterna förväntar
+            const csvFormatData = storageData.map(storageItem => ({
+              "Page": storageItem.pageName,
+              "Page ID": storageItem.pageId,
+              "Reach": storageItem.metrics.reach || 0,
+              "Engaged Users": storageItem.metrics.engagedUsers || 0,
+              "Engagements": storageItem.metrics.engagements || 0,
+              "Reactions": storageItem.metrics.reactions || 0,
+              "Publications": storageItem.metrics.publications || 0,
+              "Status": storageItem.metrics.status || 0,
+              "Comment": storageItem.metrics.comment || 0
+            }));
+            
+            return {
+              year: period.year,
+              month: period.month,
+              data: csvFormatData, // Nu i korrekt CSV-format som komponenterna förväntar sig
+              filename: `FB_${period.year}_${String(period.month).padStart(2, '0')}.csv`
+            };
+          })
+        );
+        
+        console.log('Konverterade periodsWithData:', periodsWithData);
+        setUploadedPeriods(periodsWithData);
+        setHasData(true);
+        setActiveTab('monthly'); // Växla till månadsanalys om data finns
+      } else {
+        console.log('Ingen befintlig data hittades');
+      }
+    } catch (error) {
+      console.error('Kunde inte ladda befintlig data:', error);
+      // Fortsätt ändå - låt användaren ladda upp ny data
+    } finally {
+      setLoadingExistingData(false);
+    }
+  };
 
   // Handler för när data har laddats upp framgångsrikt
-  const handleDataUploaded = (periods) => {
-    console.log('Data uploaded successfully:', periods);
-    setUploadedPeriods(periods);
+  const handleDataUploaded = async (periodsArray) => {
+    console.log('Data uploaded successfully:', periodsArray);
+    
+    // TimeseriesUploader.jsx returnerar array direkt, inte summary object
+    const newPeriods = Array.isArray(periodsArray) ? periodsArray : [];
+    
+    // Merge med befintliga uploadedPeriods, undvik dubbletter
+    const mergedPeriods = [...uploadedPeriods];
+    newPeriods.forEach(newPeriod => {
+      const exists = mergedPeriods.some(existing => 
+        existing.year === newPeriod.year && existing.month === newPeriod.month
+      );
+      if (!exists) {
+        mergedPeriods.push(newPeriod);
+      } else {
+        console.log(`Period ${newPeriod.year}-${newPeriod.month} finns redan, hoppar över dubblett`);
+      }
+    });
+    
+    console.log('Merged periods:', mergedPeriods);
+    setUploadedPeriods(mergedPeriods);
     setHasData(true);
     setShowUploader(false);
     setActiveTab('monthly'); // Växla till månadsanalys när data finns
+  };
+
+  // Handler för att rensa all data
+  const handleClearData = async () => {
+    if (!window.confirm('Är du säker på att du vill rensa all data? Detta kan inte ångras.')) {
+      return;
+    }
+
+    try {
+      setClearingData(true);
+      console.log('Rensar all data...');
+      
+      // 1. Rensa all storage (IndexedDB + localStorage)
+      await clearAllData();
+      
+      // 2. Återställ React state
+      setUploadedPeriods([]);
+      setHasData(false); 
+      setActiveTab('upload');
+      
+      console.log('✅ All data rensad framgångsrikt');
+      
+    } catch (error) {
+      console.error('❌ Fel vid rensning av data:', error);
+      alert(`Fel vid rensning av data: ${error.message}`);
+    } finally {
+      setClearingData(false);
+    }
   };
 
   // Handler för att avbryta upload och gå tillbaka
   const handleCancelUpload = () => {
     setShowUploader(false);
   };
+
+  // Om vi fortfarande laddar befintlig data, visa loading
+  if (loadingExistingData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
+          <h2 className="text-xl font-semibold mb-2">Facebook API data analyser</h2>
+          <p className="text-muted-foreground">Laddar befintlig data...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Om uploader visas, visa bara den komponenten
   if (showUploader) {
@@ -76,152 +194,145 @@ function App() {
       <main className="container py-6">
         <div className="space-y-6">
           {!hasData ? (
-            /* Välkomstvy - innan data laddats upp */
-            <div className="space-y-6">
-              <Card>
-                <CardHeader className="text-center">
-                  <CardTitle className="text-2xl">Välkommen till Facebook API data analyser</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center space-y-4">
-                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                    Analysera och visualisera utvecklingen av dina Facebook-sidor över tid. 
-                    Ladda upp månadsvis CSV-data från Facebook API för att komma igång.
+            /* Ingen data - visa startsida */
+            <div className="text-center py-12">
+              <UploadCloud className="mx-auto h-24 w-24 text-muted-foreground mb-6" />
+              <h2 className="text-3xl font-bold tracking-tight mb-4">
+                Välkommen till Facebook API data analyser
+              </h2>
+              <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+                Analysera och visualisera dina Facebook-sidor över tid. 
+                Ladda upp månadsdata för att komma igång med tidserie-analys.
+              </p>
+              
+              <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-12">
+                <Card className="text-center p-6">
+                  <Calendar className="mx-auto h-12 w-12 text-primary mb-4" />
+                  <h3 className="font-semibold mb-2">Månadsanalys</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Jämför prestanda mellan Facebook-sidor för specifika månader
                   </p>
-                  
-                  <Alert className="max-w-2xl mx-auto">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>CSV-format som krävs</AlertTitle>
-                    <AlertDescription>
-                      Filnamn: <code>FB_YYYY_MM.csv</code> (ex: FB_2025_08.csv)<br/>
-                      Kolumner: Page, Page ID, Reach, Engaged Users, Engagements, Reactions, Publications, Status, Comment
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="pt-4">
-                    <Button size="lg" onClick={() => setShowUploader(true)}>
-                      <UploadCloud className="mr-2 h-5 w-5" />
-                      Ladda upp CSV-filer
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Feature preview */}
-              <div className="grid md:grid-cols-3 gap-4">
-                <Card className="opacity-50">
-                  <CardHeader>
-                    <Calendar className="h-8 w-8 text-facebook-500 mb-2" />
-                    <CardTitle className="text-lg">Månadsanalys</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Jämför alla Facebook-sidor för en specifik månad och identifiera toppresterare
-                    </p>
-                  </CardContent>
                 </Card>
-
-                <Card className="opacity-50">
-                  <CardHeader>
-                    <TrendingUp className="h-8 w-8 text-facebook-500 mb-2" />
-                    <CardTitle className="text-lg">Trendanalys</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Upptäck trender och utvecklingsmönster över tid för alla Facebook-sidor
-                    </p>
-                  </CardContent>
+                
+                <Card className="text-center p-6">
+                  <TrendingUp className="mx-auto h-12 w-12 text-primary mb-4" />
+                  <h3 className="font-semibold mb-2">Tidserie-analys</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Följ utvecklingen av enskilda sidor över tid
+                  </p>
                 </Card>
-
-                <Card className="opacity-50">
-                  <CardHeader>
-                    <BarChart3 className="h-8 w-8 text-facebook-500 mb-2" />
-                    <CardTitle className="text-lg">Sidanalys</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Djupdyk i specifika Facebook-sidor och deras utveckling över månader
-                    </p>
-                  </CardContent>
+                
+                <Card className="text-center p-6">
+                  <BarChart3 className="mx-auto h-12 w-12 text-primary mb-4" />
+                  <h3 className="font-semibold mb-2">Trend-upptäckt</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Upptäck mönster och trender i dina Facebook-data
+                  </p>
                 </Card>
               </div>
+              
+              <Button onClick={() => setShowUploader(true)} size="lg">
+                <UploadCloud className="mr-2 h-5 w-5" />
+                Ladda upp Facebook API data
+              </Button>
             </div>
           ) : (
-            /* Huvudgränssnitt - när data finns */
-            <div className="grid gap-6">
-              {/* Data-status sektion */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-facebook-500" />
-                    Uppladdad data
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4 mb-4">
-                    <div className="text-center p-3 bg-facebook-50 rounded-lg">
-                      <div className="text-2xl font-bold text-facebook-900">{uploadedPeriods.length}</div>
-                      <div className="text-sm text-facebook-700">Månader</div>
-                    </div>
-                    <div className="text-center p-3 bg-facebook-50 rounded-lg">
-                      <div className="text-2xl font-bold text-facebook-900">
-                        {uploadedPeriods.reduce((acc, period) => acc + period.pageCount, 0)}
-                      </div>
-                      <div className="text-sm text-facebook-700">Totalt dataposter</div>
-                    </div>
-                    <div className="text-center p-3 bg-facebook-50 rounded-lg">
-                      <div className="text-2xl font-bold text-facebook-900">
-                        {uploadedPeriods.length > 0 ? Math.max(...uploadedPeriods.map(p => p.pageCount)) : 0}
-                      </div>
-                      <div className="text-sm text-facebook-700">Sidor per månad</div>
-                    </div>
-                  </div>
-                  
-                  {uploadedPeriods.length > 0 && (
-                    <div>
-                      <div className="text-sm font-medium mb-2">Tillgängliga perioder:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {uploadedPeriods.map((period, index) => (
-                          <span 
-                            key={index}
-                            className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-facebook-50 text-facebook-700 border border-facebook-200"
-                          >
-                            {period.displayName} ({period.pageCount} sidor)
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="upload">
+            /* Data finns - visa tab-navigation */
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Analysera Facebook-data</h2>
+                  <p className="text-muted-foreground">
+                    {uploadedPeriods.length} period{uploadedPeriods.length !== 1 ? 'er' : ''} tillgänglig{uploadedPeriods.length !== 1 ? 'a' : ''}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowUploader(true)}>
                     <UploadCloud className="mr-2 h-4 w-4" />
-                    Ladda data
+                    Ladda upp mer data
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleClearData}
+                    disabled={clearingData}
+                  >
+                    {clearingData ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Rensar...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Rensa data
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="upload" className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Info
                   </TabsTrigger>
-                  <TabsTrigger value="monthly">
-                    <Calendar className="mr-2 h-4 w-4" />
+                  <TabsTrigger value="monthly" className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
                     Månadsanalys
                   </TabsTrigger>
-                  <TabsTrigger value="pages">
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Sidanalys
+                  <TabsTrigger value="pages" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Sidor över tid
                   </TabsTrigger>
-                  <TabsTrigger value="trends">
-                    <TrendingUp className="mr-2 h-4 w-4" />
-                    Trender
+                  <TabsTrigger value="trends" className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Trendanalys
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="upload" className="mt-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Hantera CSV-data</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        <Info className="h-5 w-5" />
+                        Dataöversikt
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <p className="text-muted-foreground">
-                        Hantera dina uppladdade CSV-filer och ladda upp ytterligare månadsdata.
+                      <Alert>
+                        <Info className="h-4 w-4" />
+                        <AlertTitle>Data laddad och redo</AlertTitle>
+                        <AlertDescription>
+                          Du har {uploadedPeriods.length} period{uploadedPeriods.length !== 1 ? 'er' : ''} av Facebook-data tillgänglig för analys. 
+                          Använd flikarna ovan för att utforska dina data eller ladda upp mer data.
+                        </AlertDescription>
+                      </Alert>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="text-center p-4 bg-blue-50 rounded-lg">
+                          <Calendar className="w-8 h-8 mx-auto mb-2 text-blue-600" />
+                          <div className="font-bold text-2xl text-blue-900">{uploadedPeriods.length}</div>
+                          <div className="text-sm text-blue-700">Månader data</div>
+                        </div>
+                        <div className="text-center p-4 bg-green-50 rounded-lg">
+                          <BarChart3 className="w-8 h-8 mx-auto mb-2 text-green-600" />
+                          <div className="font-bold text-2xl text-green-900">
+                            {uploadedPeriods.reduce((total, period) => total + (period.data?.length || 0), 0)}
+                          </div>
+                          <div className="text-sm text-green-700">Totalt dataposter</div>
+                        </div>
+                        <div className="text-center p-4 bg-purple-50 rounded-lg">
+                          <TrendingUp className="w-8 h-8 mx-auto mb-2 text-purple-600" />
+                          <div className="font-bold text-2xl text-purple-900">
+                            {[...new Set(uploadedPeriods.flatMap(p => p.data?.map(d => d.Page || d.page) || []))].length}
+                          </div>
+                          <div className="text-sm text-purple-700">Unika Facebook-sidor</div>
+                        </div>
+                      </div>
+
+                      <p className="text-sm text-muted-foreground">
+                        Data sparas automatiskt i webbläsaren och kommer att finnas kvar när du laddar om sidan.
                       </p>
                       <Button onClick={() => setShowUploader(true)}>
                         <UploadCloud className="mr-2 h-4 w-4" />
