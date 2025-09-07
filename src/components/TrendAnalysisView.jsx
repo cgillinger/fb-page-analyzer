@@ -115,7 +115,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     return index >= 0 ? CHART_COLORS[index % CHART_COLORS.length] : CHART_COLORS[0];
   };
 
-  // PNG-export funktion för PPT-optimerad graf MED KONTOINFORMATION
+  // FIXAD PNG-export funktion med korrekt aspect ratio
   const exportChartAsPNG = () => {
     const svg = document.querySelector('#trend-chart-svg');
     if (!svg || chartLines.length === 0) return;
@@ -124,15 +124,17 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    // Optimal PPT-storlek: 16:9 ratio, högre upplösning
-    const width = 1920;
-    const height = 1080;
-    canvas.width = width;
-    canvas.height = height;
+    // KORRIGERAT: Behåll SVG:ens aspect ratio (1000x500 = 2:1)
+    const aspectRatio = 2; // 1000/500 = 2
+    const exportWidth = 1600; // Hög kvalitet för PPT
+    const exportHeight = exportWidth / aspectRatio; // 800px för korrekt ratio
+    
+    canvas.width = exportWidth;
+    canvas.height = exportHeight;
     
     // Vit bakgrund för PPT
     ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, exportWidth, exportHeight);
     
     // Konvertera SVG till PNG via HTML5 Canvas
     const svgData = new XMLSerializer().serializeToString(svg);
@@ -142,29 +144,34 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     
     const img = new Image();
     img.onload = () => {
-      // Rita SVG på canvas med skalning för bättre kvalitet
-      ctx.drawImage(img, 0, 150, width, height - 350); // Mer plats för titel och konto-info
+      // KORRIGERAT: Rita SVG med korrekt skalning och positionering
+      const titleHeight = 80;
+      const footerHeight = 120;
+      const chartHeight = exportHeight - titleHeight - footerHeight;
+      
+      // Rita SVG-diagrammet med korrekt skalning
+      ctx.drawImage(img, 0, titleHeight, exportWidth, chartHeight);
       
       // Lägg till prominent titel
       ctx.fillStyle = '#1f2937';
-      ctx.font = 'bold 48px Arial, sans-serif';
+      ctx.font = 'bold 32px Arial, sans-serif';
       ctx.textAlign = 'center';
       const title = `Utveckling över tid - ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`;
-      ctx.fillText(title, width / 2, 80);
+      ctx.fillText(title, exportWidth / 2, 50);
       
       // Lägg till konto-information
       ctx.fillStyle = '#4b5563';
-      ctx.font = '32px Arial, sans-serif';
+      ctx.font = '24px Arial, sans-serif';
       const selectedPageNames = chartLines.map(line => line.pageName);
       const accountText = selectedPageNames.length === 1 
         ? `Konto: ${selectedPageNames[0]}`
         : `Konton: ${selectedPageNames.join(', ')}`;
       
       // Hantera lång text genom att dela upp i rader om nödvändigt
-      const maxWidth = width - 200;
+      const maxWidth = exportWidth - 200;
       const words = accountText.split(' ');
       let line = '';
-      let y = height - 80;
+      let y = exportHeight - 60;
       
       for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
@@ -172,14 +179,14 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
         const testWidth = metrics.width;
         
         if (testWidth > maxWidth && n > 0) {
-          ctx.fillText(line, width / 2, y);
+          ctx.fillText(line, exportWidth / 2, y);
           line = words[n] + ' ';
-          y += 40;
+          y += 30;
         } else {
           line = testLine;
         }
       }
-      ctx.fillText(line, width / 2, y);
+      ctx.fillText(line, exportWidth / 2, y);
       
       // Exportera som PNG
       canvas.toBlob((blob) => {
@@ -241,7 +248,6 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
       setSelectedPeriods(availablePeriods); // Markera alla
     }
   };
-
   // Generera linjediagram-data - KRÄVER BÅDE SIDOR OCH PERIODER
   const generateChartData = useMemo(() => {
     if (!uploadedPeriods || selectedPages.length === 0 || selectedPeriods.length === 0) {
@@ -390,33 +396,6 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     });
     setHoveredDataPoint(point);
   };
-
-  // Beräkna trendstatistik för alla sidor
-  const trendStatistics = useMemo(() => {
-    if (!dataset) return [];
-
-    const stats = [];
-    
-    availablePages.forEach(page => {
-      const timeseries = dataset.getPageTimeseries(page.pageId);
-      if (!timeseries) return;
-
-      const trendData = calculateMonthToMonthTrend(timeseries, selectedMetric);
-      const avgTrend = calculateAverageTrend(trendData);
-      
-      if (trendData.length > 0) {
-        stats.push({
-          page,
-          trendData,
-          avgTrend,
-          totalPeriods: trendData.length + 1,
-          latestChange: trendData[trendData.length - 1]
-        });
-      }
-    });
-
-    return stats.sort((a, b) => b.avgTrend.averagePercentageChange - a.avgTrend.averagePercentageChange);
-  }, [dataset, availablePages, selectedMetric]);
 
   if (!uploadedPeriods || uploadedPeriods.length === 0) {
     return (
@@ -722,128 +701,6 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
                   : "Markera minst en period i listan ovan"
                 }
               </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Trendstatistik-sektion */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Trendstatistik - {METRIC_DEFINITIONS[selectedMetric]?.displayName}
-          </CardTitle>
-          <Button
-            variant="outline"
-            onClick={() => setShowDetailedTrends(!showDetailedTrends)}
-          >
-            {showDetailedTrends ? 'Dölj detaljer' : 'Visa detaljer'}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {trendStatistics.length === 0 ? (
-            <p className="text-muted-foreground">Ingen trenddata tillgänglig för vald metric.</p>
-          ) : (
-            <div className="space-y-4">
-              {/* Top/Bottom performers */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                    Bäst presterande sidor
-                  </h4>
-                  {trendStatistics.slice(0, 3).map((stat, index) => (
-                    <div key={stat.page.pageId} className="flex items-center justify-between p-3 bg-green-50 rounded">
-                      <div>
-                        <div className="font-medium text-sm">{stat.page.pageName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {stat.totalPeriods} månader
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-green-700">
-                          +{stat.avgTrend.averagePercentageChange.toFixed(1)}%
-                        </div>
-                        <div className="text-xs text-green-600">
-                          genomsnitt/månad
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <TrendingDown className="h-4 w-4 text-red-600" />
-                    Sämst presterande sidor
-                  </h4>
-                  {trendStatistics.slice(-3).reverse().map((stat, index) => (
-                    <div key={stat.page.pageId} className="flex items-center justify-between p-3 bg-red-50 rounded">
-                      <div>
-                        <div className="font-medium text-sm">{stat.page.pageName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {stat.totalPeriods} månader
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-red-700">
-                          {stat.avgTrend.averagePercentageChange.toFixed(1)}%
-                        </div>
-                        <div className="text-xs text-red-600">
-                          genomsnitt/månad
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Detaljerad trendtabell */}
-              {showDetailedTrends && (
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-muted p-3 font-medium">
-                    Detaljerad trendanalys för alla sidor
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {trendStatistics.map(stat => (
-                      <div key={stat.page.pageId} className="p-3 border-b last:border-b-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="font-medium">{stat.page.pageName}</div>
-                          <div className="flex items-center gap-4">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              stat.avgTrend.averagePercentageChange > 0 
-                                ? 'bg-green-100 text-green-800'
-                                : stat.avgTrend.averagePercentageChange < 0
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {stat.avgTrend.averagePercentageChange > 0 ? '+' : ''}
-                              {stat.avgTrend.averagePercentageChange.toFixed(1)}% snitt
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {stat.avgTrend.positiveMonths}↗ {stat.avgTrend.negativeMonths}↘ {stat.avgTrend.stableMonths}→
-                            </span>
-                          </div>
-                        </div>
-                        
-                        {stat.latestChange && (
-                          <div className="text-sm text-muted-foreground">
-                            Senaste förändring: {stat.latestChange.previousPeriod} → {stat.latestChange.period}
-                            <span className={`ml-2 font-medium ${
-                              stat.latestChange.percentageChange > 0 ? 'text-green-600' : 
-                              stat.latestChange.percentageChange < 0 ? 'text-red-600' : 'text-gray-600'
-                            }`}>
-                              {stat.latestChange.percentageChange > 0 ? '+' : ''}
-                              {stat.latestChange.percentageChange?.toFixed(1)}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </CardContent>

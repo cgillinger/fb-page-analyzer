@@ -48,9 +48,9 @@ export const METRIC_DEFINITIONS = {
   // SUMMERBARA METRICS (Räknbara händelser)
   engagements: {
     category: 'countable_events',
-    displayName: 'Interaktioner',
-    description: 'Totalt antal interaktioner (reactions + comments + shares)',
-    unit: 'interaktioner',
+    displayName: 'Engagemang',
+    description: 'Totalt antal engagemang (från Facebook API) - separat från beräknade interaktioner',
+    unit: 'engagemang',
     canSumAcrossTime: true,
     canSumAcrossPages: true,
     preferredAggregation: 'sum',
