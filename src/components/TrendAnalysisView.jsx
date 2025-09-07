@@ -115,78 +115,77 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     return index >= 0 ? CHART_COLORS[index % CHART_COLORS.length] : CHART_COLORS[0];
   };
 
-  // FIXAD PNG-export med legenda och korrekt aspect ratio (som bild 2)
+  // FIXAD PNG-export som matchar bild 2 exakt (ingen dubbel rubrik/legenda)
   const exportChartAsPNG = () => {
     const svg = document.querySelector('#trend-chart-svg');
     if (!svg || chartLines.length === 0) return;
 
-    // Skapa en canvas för export
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    // KORRIGERAT: Aspect ratio som matchar bild 2 (mer kvadratisk)
-    const exportWidth = 1200; // Bredare men inte för bred
-    const exportHeight = 900; // Högre för att matcha bild 2
+    // Aspect ratio som bild 2
+    const exportWidth = 1200;
+    const exportHeight = 900;
     
     canvas.width = exportWidth;
     canvas.height = exportHeight;
     
-    // Vit bakgrund för PPT
+    // Vit bakgrund
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, exportWidth, exportHeight);
     
-    // STEG 1: Rita titel
+    // BARA EN RUBRIK (som bild 2)
     ctx.fillStyle = '#1f2937';
-    ctx.font = 'bold 28px Arial, sans-serif';
+    ctx.font = 'bold 24px Arial, sans-serif';
     ctx.textAlign = 'center';
     const title = `Utveckling över tid - ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`;
-    ctx.fillText(title, exportWidth / 2, 40);
+    ctx.fillText(title, exportWidth / 2, 35);
     
-    // STEG 2: Rita datapunkt-indikator (prominent blå box som i bild 2)
-    const boxY = 60;
-    const boxHeight = 60;
-    ctx.fillStyle = '#dbeafe'; // Ljusblå bakgrund
+    // Blå box (som bild 2)
+    const boxY = 55;
+    const boxHeight = 50;
+    ctx.fillStyle = '#dbeafe';
     ctx.fillRect(100, boxY, exportWidth - 200, boxHeight);
     ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
     ctx.strokeRect(100, boxY, exportWidth - 200, boxHeight);
     
-    // Text i blå box
     ctx.fillStyle = '#1e40af';
-    ctx.font = 'bold 20px Arial, sans-serif';
-    ctx.fillText(`Visar: ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`, exportWidth / 2, boxY + 30);
-    ctx.font = '14px Arial, sans-serif';
-    ctx.fillText('Aktuell datapunkt som visas i diagrammet', exportWidth / 2, boxY + 50);
+    ctx.font = 'bold 16px Arial, sans-serif';
+    ctx.fillText(`Visar: ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`, exportWidth / 2, boxY + 22);
+    ctx.font = '12px Arial, sans-serif';
+    ctx.fillText('Aktuell datapunkt som visas i diagrammet', exportWidth / 2, boxY + 38);
     
-    // STEG 3: Rita legenda FÖRE diagrammet (som i bild 2)
-    const legendY = 140;
-    const legendItemWidth = 200;
-    const legendItemHeight = 25;
+    // MULTI-RAD LEGENDA (som bild 2 hanterar 25 konton)
+    const legendStartY = 125;
+    const itemWidth = 240; // Bredare för längre namn
+    const itemHeight = 20;
+    const itemsPerRow = Math.floor((exportWidth - 100) / itemWidth); // ~4-5 per rad
     
     chartLines.forEach((line, index) => {
-      const startX = 100 + (index * legendItemWidth);
+      const row = Math.floor(index / itemsPerRow);
+      const col = index % itemsPerRow;
+      const x = 50 + (col * itemWidth);
+      const y = legendStartY + (row * itemHeight);
       
-      // Färgad cirkel
+      // Färgcirkel
       ctx.fillStyle = line.color;
       ctx.beginPath();
-      ctx.arc(startX + 10, legendY + 12, 6, 0, 2 * Math.PI);
+      ctx.arc(x + 8, y + 10, 4, 0, 2 * Math.PI);
       ctx.fill();
       
-      // Kontonamn
+      // Kortare namn för legenda
       ctx.fillStyle = '#374151';
-      ctx.font = '14px Arial, sans-serif';
+      ctx.font = '11px Arial, sans-serif';
       ctx.textAlign = 'left';
-      
-      // Korta ner långa namn om nödvändigt
       let displayName = line.pageName;
-      if (displayName.length > 20) {
-        displayName = displayName.substring(0, 17) + '...';
+      if (displayName.length > 25) {
+        displayName = displayName.substring(0, 22) + '...';
       }
-      
-      ctx.fillText(displayName, startX + 25, legendY + 17);
+      ctx.fillText(displayName, x + 18, y + 14);
     });
     
-    // STEG 4: Konvertera och rita SVG-diagrammet
+    // SVG-diagram
     const svgData = new XMLSerializer().serializeToString(svg);
     const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const URL = window.URL || window.webkitURL;
@@ -194,63 +193,31 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     
     const img = new Image();
     img.onload = () => {
-      // KORRIGERAT: Diagram-område (anpassat för legenda ovan)
-      const chartStartY = legendY + 50; // Efter legenda
-      const chartHeight = exportHeight - chartStartY - 100; // Lämna plats för footer
-      const chartWidth = exportWidth - 200; // Marginaler
+      // Beräkna diagram-position (efter multi-rad legenda)
+      const legendRows = Math.ceil(chartLines.length / itemsPerRow);
+      const chartStartY = legendStartY + (legendRows * itemHeight) + 20;
+      const chartHeight = exportHeight - chartStartY - 80;
+      const chartWidth = exportWidth - 100;
       
-      // Rita SVG-diagrammet
-      ctx.drawImage(img, 100, chartStartY, chartWidth, chartHeight);
+      // Rita diagrammet
+      ctx.drawImage(img, 50, chartStartY, chartWidth, chartHeight);
       
-      // STEG 5: Footer-information (konto-lista)
-      const footerY = exportHeight - 60;
+      // Footer med total antal konton (som bild 2)
+      const footerY = exportHeight - 25;
       ctx.fillStyle = '#6b7280';
-      ctx.font = '16px Arial, sans-serif';
+      ctx.font = '14px Arial, sans-serif';
       ctx.textAlign = 'center';
       
-      const selectedPageNames = chartLines.map(line => line.pageName);
-      let accountText = '';
-      if (selectedPageNames.length === 1) {
-        accountText = `Konto: ${selectedPageNames[0]}`;
-      } else if (selectedPageNames.length <= 3) {
-        accountText = `Konton: ${selectedPageNames.join(', ')}`;
-      } else {
-        accountText = `${selectedPageNames.length} konton: ${selectedPageNames.slice(0, 2).join(', ')} med flera`;
-      }
+      const pageNames = chartLines.map(line => line.pageName);
+      const footerText = `${pageNames.length} konton: ${pageNames.slice(0, 3).join(', ')}${pageNames.length > 3 ? ' med flera' : ''}`;
+      ctx.fillText(footerText, exportWidth / 2, footerY);
       
-      // Dela upp lång text i flera rader om nödvändigt
-      const maxWidth = exportWidth - 200;
-      const words = accountText.split(' ');
-      let line = '';
-      let y = footerY;
-      
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        const testWidth = metrics.width;
-        
-        if (testWidth > maxWidth && n > 0) {
-          ctx.fillText(line, exportWidth / 2, y);
-          line = words[n] + ' ';
-          y += 25;
-        } else {
-          line = testLine;
-        }
-      }
-      ctx.fillText(line, exportWidth / 2, y);
-      
-      // STEG 6: Exportera som PNG
+      // Export
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        
-        // Filnamn med kontonamn
-        const kontoSuffix = selectedPageNames.length === 1 
-          ? selectedPageNames[0].replace(/[^a-zA-Z0-9]/g, '-')
-          : `${selectedPageNames.length}-konton`;
-        a.download = `trend-analys-${selectedMetric}-${kontoSuffix}-${new Date().toISOString().slice(0, 10)}.png`;
-        
+        a.download = `utveckling-over-tid-${selectedMetric}-${new Date().toISOString().slice(0, 10)}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -298,6 +265,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
       setSelectedPeriods(availablePeriods); // Markera alla
     }
   };
+
   // Generera linjediagram-data - KRÄVER BÅDE SIDOR OCH PERIODER
   const generateChartData = useMemo(() => {
     if (!uploadedPeriods || selectedPages.length === 0 || selectedPeriods.length === 0) {
@@ -565,7 +533,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
             </div>
           </div>
 
-          {/* PROMINENT DATAPUNKT-VISNING - FLYTTAD EFTER KONTROLLER */}
+          {/* PROMINENT DATAPUNKT-VISNING - som i bild 2 */}
           {selectedMetric && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
               <h3 className="text-lg font-bold text-blue-900">
@@ -577,18 +545,20 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
             </div>
           )}
 
-          {/* Linjediagram */}
+          {/* Linjediagram UTAN dubbel legenda */}
           {chartLines.length > 0 ? (
             <div className="space-y-4">
-              {/* Legenda */}
-              <div className="flex flex-wrap gap-3">
+              {/* BARA EN LEGENDA (över diagrammet, som bild 2) */}
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
                 {chartLines.map(line => (
                   <div key={line.pageId} className="flex items-center gap-2">
                     <div 
-                      className="w-3 h-3 rounded-full border"
+                      className="w-3 h-3 rounded-full border flex-shrink-0"
                       style={{ backgroundColor: line.color }}
                     />
-                    <span className="text-sm font-medium">{line.pageName}</span>
+                    <span className="text-xs font-medium truncate" title={line.pageName}>
+                      {line.pageName.length > 20 ? line.pageName.substring(0, 17) + '...' : line.pageName}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -692,7 +662,6 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
                   {/* FÖRBÄTTRAD TOOLTIP med dynamisk positionering */}
                   {hoveredDataPoint && (
                     <g>
-                      {/* Beräkna tooltip-position baserat på muspekaren */}
                       {(() => {
                         // Tooltip ska vara 200px bred och 70px hög
                         const tooltipWidth = 200;
