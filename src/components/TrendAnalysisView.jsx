@@ -134,15 +134,8 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, exportWidth, exportHeight);
     
-    // BARA EN RUBRIK (som bild 2)
-    ctx.fillStyle = '#1f2937';
-    ctx.font = 'bold 24px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    const title = `Utveckling över tid - ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`;
-    ctx.fillText(title, exportWidth / 2, 35);
-    
-    // Blå box (som bild 2)
-    const boxY = 55;
+    // BARA BLÅ BOX (som bild 2) - INGEN dubbel rubrik, CENTRERAD
+    const boxY = 25;
     const boxHeight = 50;
     ctx.fillStyle = '#dbeafe';
     ctx.fillRect(100, boxY, exportWidth - 200, boxHeight);
@@ -152,6 +145,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     
     ctx.fillStyle = '#1e40af';
     ctx.font = 'bold 16px Arial, sans-serif';
+    ctx.textAlign = 'center'; // VIKTIGT: Centrerad text
     ctx.fillText(`Visar: ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`, exportWidth / 2, boxY + 22);
     ctx.font = '12px Arial, sans-serif';
     ctx.fillText('Aktuell datapunkt som visas i diagrammet', exportWidth / 2, boxY + 38);
