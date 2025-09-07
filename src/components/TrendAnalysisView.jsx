@@ -115,7 +115,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     return index >= 0 ? CHART_COLORS[index % CHART_COLORS.length] : CHART_COLORS[0];
   };
 
-  // FIXAD PNG-export funktion med korrekt aspect ratio
+  // FIXAD PNG-export med legenda och korrekt aspect ratio (som bild 2)
   const exportChartAsPNG = () => {
     const svg = document.querySelector('#trend-chart-svg');
     if (!svg || chartLines.length === 0) return;
@@ -124,10 +124,9 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    // KORRIGERAT: Behåll SVG:ens aspect ratio (1000x500 = 2:1)
-    const aspectRatio = 2; // 1000/500 = 2
-    const exportWidth = 1600; // Hög kvalitet för PPT
-    const exportHeight = exportWidth / aspectRatio; // 800px för korrekt ratio
+    // KORRIGERAT: Aspect ratio som matchar bild 2 (mer kvadratisk)
+    const exportWidth = 1200; // Bredare men inte för bred
+    const exportHeight = 900; // Högre för att matcha bild 2
     
     canvas.width = exportWidth;
     canvas.height = exportHeight;
@@ -136,7 +135,58 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, exportWidth, exportHeight);
     
-    // Konvertera SVG till PNG via HTML5 Canvas
+    // STEG 1: Rita titel
+    ctx.fillStyle = '#1f2937';
+    ctx.font = 'bold 28px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    const title = `Utveckling över tid - ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`;
+    ctx.fillText(title, exportWidth / 2, 40);
+    
+    // STEG 2: Rita datapunkt-indikator (prominent blå box som i bild 2)
+    const boxY = 60;
+    const boxHeight = 60;
+    ctx.fillStyle = '#dbeafe'; // Ljusblå bakgrund
+    ctx.fillRect(100, boxY, exportWidth - 200, boxHeight);
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(100, boxY, exportWidth - 200, boxHeight);
+    
+    // Text i blå box
+    ctx.fillStyle = '#1e40af';
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText(`Visar: ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`, exportWidth / 2, boxY + 30);
+    ctx.font = '14px Arial, sans-serif';
+    ctx.fillText('Aktuell datapunkt som visas i diagrammet', exportWidth / 2, boxY + 50);
+    
+    // STEG 3: Rita legenda FÖRE diagrammet (som i bild 2)
+    const legendY = 140;
+    const legendItemWidth = 200;
+    const legendItemHeight = 25;
+    
+    chartLines.forEach((line, index) => {
+      const startX = 100 + (index * legendItemWidth);
+      
+      // Färgad cirkel
+      ctx.fillStyle = line.color;
+      ctx.beginPath();
+      ctx.arc(startX + 10, legendY + 12, 6, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Kontonamn
+      ctx.fillStyle = '#374151';
+      ctx.font = '14px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      
+      // Korta ner långa namn om nödvändigt
+      let displayName = line.pageName;
+      if (displayName.length > 20) {
+        displayName = displayName.substring(0, 17) + '...';
+      }
+      
+      ctx.fillText(displayName, startX + 25, legendY + 17);
+    });
+    
+    // STEG 4: Konvertera och rita SVG-diagrammet
     const svgData = new XMLSerializer().serializeToString(svg);
     const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const URL = window.URL || window.webkitURL;
@@ -144,34 +194,35 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     
     const img = new Image();
     img.onload = () => {
-      // KORRIGERAT: Rita SVG med korrekt skalning och positionering
-      const titleHeight = 80;
-      const footerHeight = 120;
-      const chartHeight = exportHeight - titleHeight - footerHeight;
+      // KORRIGERAT: Diagram-område (anpassat för legenda ovan)
+      const chartStartY = legendY + 50; // Efter legenda
+      const chartHeight = exportHeight - chartStartY - 100; // Lämna plats för footer
+      const chartWidth = exportWidth - 200; // Marginaler
       
-      // Rita SVG-diagrammet med korrekt skalning
-      ctx.drawImage(img, 0, titleHeight, exportWidth, chartHeight);
+      // Rita SVG-diagrammet
+      ctx.drawImage(img, 100, chartStartY, chartWidth, chartHeight);
       
-      // Lägg till prominent titel
-      ctx.fillStyle = '#1f2937';
-      ctx.font = 'bold 32px Arial, sans-serif';
+      // STEG 5: Footer-information (konto-lista)
+      const footerY = exportHeight - 60;
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '16px Arial, sans-serif';
       ctx.textAlign = 'center';
-      const title = `Utveckling över tid - ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`;
-      ctx.fillText(title, exportWidth / 2, 50);
       
-      // Lägg till konto-information
-      ctx.fillStyle = '#4b5563';
-      ctx.font = '24px Arial, sans-serif';
       const selectedPageNames = chartLines.map(line => line.pageName);
-      const accountText = selectedPageNames.length === 1 
-        ? `Konto: ${selectedPageNames[0]}`
-        : `Konton: ${selectedPageNames.join(', ')}`;
+      let accountText = '';
+      if (selectedPageNames.length === 1) {
+        accountText = `Konto: ${selectedPageNames[0]}`;
+      } else if (selectedPageNames.length <= 3) {
+        accountText = `Konton: ${selectedPageNames.join(', ')}`;
+      } else {
+        accountText = `${selectedPageNames.length} konton: ${selectedPageNames.slice(0, 2).join(', ')} med flera`;
+      }
       
-      // Hantera lång text genom att dela upp i rader om nödvändigt
+      // Dela upp lång text i flera rader om nödvändigt
       const maxWidth = exportWidth - 200;
       const words = accountText.split(' ');
       let line = '';
-      let y = exportHeight - 60;
+      let y = footerY;
       
       for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
@@ -181,20 +232,20 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
         if (testWidth > maxWidth && n > 0) {
           ctx.fillText(line, exportWidth / 2, y);
           line = words[n] + ' ';
-          y += 30;
+          y += 25;
         } else {
           line = testLine;
         }
       }
       ctx.fillText(line, exportWidth / 2, y);
       
-      // Exportera som PNG
+      // STEG 6: Exportera som PNG
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         
-        // Inkludera kontonamn i filnamnet
+        // Filnamn med kontonamn
         const kontoSuffix = selectedPageNames.length === 1 
           ? selectedPageNames[0].replace(/[^a-zA-Z0-9]/g, '-')
           : `${selectedPageNames.length}-konton`;
@@ -224,7 +275,6 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
   const handleMetricToggle = (metricKey) => {
     setSelectedMetric(metricKey);
   };
-
   // Hantera periodval
   const handlePeriodToggle = (period) => {
     const periodKey = `${period.year}-${period.month}`;
