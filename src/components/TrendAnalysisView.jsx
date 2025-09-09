@@ -373,18 +373,56 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     return Array.from(groupedByPage.values());
   }, [generateChartData, selectedPages]);
 
-  // Beräkna Y-axel range
-  const yAxisRange = useMemo(() => {
-    if (generateChartData.length === 0) return { min: 0, max: 100 };
+  // UPPDATERAD Y-axel logik - alltid börja på 0 och visa jämna tusental
+  const yAxisConfig = useMemo(() => {
+    if (generateChartData.length === 0) {
+      return { 
+        min: 0, 
+        max: 1000, 
+        step: 200,
+        ticks: [0, 200, 400, 600, 800, 1000]
+      };
+    }
     
     const values = generateChartData.map(d => d.value);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const padding = (max - min) * 0.1 || 10;
+    const maxValue = Math.max(...values);
+    
+    // Bestäm lämplig skala baserat på maxvärde
+    let step, max;
+    
+    if (maxValue <= 500) {
+      // Små värden: 100-steg
+      step = 100;
+      max = Math.ceil(maxValue / step) * step;
+    } else if (maxValue <= 5000) {
+      // Medelstora värden: 1000-steg
+      step = 1000;
+      max = Math.ceil(maxValue / step) * step;
+    } else if (maxValue <= 50000) {
+      // Större värden: 10000-steg
+      step = 10000;
+      max = Math.ceil(maxValue / step) * step;
+    } else if (maxValue <= 500000) {
+      // Stora värden: 100000-steg
+      step = 100000;
+      max = Math.ceil(maxValue / step) * step;
+    } else {
+      // Mycket stora värden: 1000000-steg
+      step = 1000000;
+      max = Math.ceil(maxValue / step) * step;
+    }
+    
+    // Skapa ticks från 0 till max med jämna steg
+    const ticks = [];
+    for (let i = 0; i <= max; i += step) {
+      ticks.push(i);
+    }
     
     return {
-      min: Math.max(0, min - padding),
-      max: max + padding
+      min: 0,
+      max,
+      step,
+      ticks
     };
   }, [generateChartData]);
 
@@ -595,7 +633,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
                 ))}
               </div>
 
-              {/* SVG Diagram - STÖRRE STORLEK */}
+              {/* SVG Diagram - STÖRRE STORLEK MED UPPDATERAD Y-AXEL */}
               <div className="relative">
                 <svg 
                   id="trend-chart-svg"
@@ -613,15 +651,14 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
                   </defs>
                   <rect width="100%" height="100%" fill="url(#grid)" />
 
-                  {/* Y-axel värden */}
-                  {[0, 25, 50, 75, 100].map(percent => {
-                    const yPos = 450 - (percent / 100) * 380;
-                    const value = yAxisRange.min + (percent / 100) * (yAxisRange.max - yAxisRange.min);
+                  {/* UPPDATERADE Y-axel värden - alltid från 0 med jämna steg */}
+                  {yAxisConfig.ticks.map(tickValue => {
+                    const yPos = 450 - (tickValue / yAxisConfig.max) * 380;
                     return (
-                      <g key={percent}>
-                        <line x1="70" y1={yPos} x2="930" y2={yPos} stroke="#d1d5db" strokeWidth="1"/>
-                        <text x="65" y={yPos + 4} textAnchor="end" fontSize="14" fill="#6b7280">
-                          {Math.round(value).toLocaleString()}
+                      <g key={tickValue}>
+                        <line x1="100" y1={yPos} x2="930" y2={yPos} stroke="#d1d5db" strokeWidth="1"/>
+                        <text x="95" y={yPos + 4} textAnchor="end" fontSize="14" fill="#6b7280">
+                          {tickValue.toLocaleString()}
                         </text>
                       </g>
                     );
@@ -629,7 +666,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
 
                   {/* X-axel månader */}
                   {availablePeriods.map((period, index) => {
-                    const xPos = 70 + (index / Math.max(1, availablePeriods.length - 1)) * 860;
+                    const xPos = 100 + (index / Math.max(1, availablePeriods.length - 1)) * 830;
                     return (
                       <g key={`${period.year}-${period.month}`}>
                         <line x1={xPos} y1="70" x2={xPos} y2="450" stroke="#d1d5db" strokeWidth="1"/>
@@ -643,17 +680,17 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
                     );
                   })}
 
-                  {/* MJUKA KURVORNA */}
+                  {/* MJUKA KURVORNA MED UPPDATERAD Y-SKALA */}
                   {chartLines.map(line => {
                     if (line.points.length < 1) return null;
 
-                    // Beräkna koordinater för alla punkter
+                    // Beräkna koordinater för alla punkter med ny Y-skala
                     const pathPoints = line.points.map((point, index) => {
                       const periodIndex = availablePeriods.findIndex(p => 
                         `${p.year}-${p.month.toString().padStart(2, '0')}` === point.periodKey
                       );
-                      const x = 70 + (periodIndex / Math.max(1, availablePeriods.length - 1)) * 860;
-                      const y = 450 - ((point.value - yAxisRange.min) / (yAxisRange.max - yAxisRange.min)) * 380;
+                      const x = 100 + (periodIndex / Math.max(1, availablePeriods.length - 1)) * 830;
+                      const y = 450 - (point.value / yAxisConfig.max) * 380;
                       
                       return { x, y, point };
                     });
