@@ -144,8 +144,9 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     ctx.lineWidth = 2;
     ctx.strokeRect(100, boxY, exportWidth - 200, boxHeight);
     
-    // Text i blå box
+    // Text i blå box - FIXAD CENTRERING
     ctx.fillStyle = '#1e40af';
+    ctx.textAlign = 'center';
     ctx.font = 'bold 20px Arial, sans-serif';
     ctx.fillText(`Visar: ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`, exportWidth / 2, boxY + 30);
     ctx.font = '14px Arial, sans-serif';
