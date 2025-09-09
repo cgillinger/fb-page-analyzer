@@ -115,112 +115,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     return index >= 0 ? CHART_COLORS[index % CHART_COLORS.length] : CHART_COLORS[0];
   };
 
-  // NYA FUNKTIONER FÖR FÖRBÄTTRAD Y-AXEL
-  // Beräkna smart Y-axel skalning som hanterar alla talstorlekar
-  const calculateSmartYAxis = (maxValue) => {
-    if (maxValue === 0) {
-      return { min: 0, max: 100, step: 20, format: 'number' };
-    }
-
-    // Bestäm skalningsnivå baserat på maxValue
-    let step, max, format;
-    
-    if (maxValue <= 1000) {
-      // Under 1000: använd 100-tal eller 200-tal
-      if (maxValue <= 500) {
-        step = 100;
-      } else {
-        step = 200;
-      }
-      max = Math.ceil(maxValue / step) * step;
-      format = 'number';
-    } 
-    else if (maxValue <= 10000) {
-      // 1K-10K: använd 1000-tal eller 2000-tal
-      if (maxValue <= 5000) {
-        step = 1000;
-      } else {
-        step = 2000;
-      }
-      max = Math.ceil(maxValue / step) * step;
-      format = 'thousands';
-    }
-    else if (maxValue <= 100000) {
-      // 10K-100K: använd 10000-tal eller 20000-tal
-      if (maxValue <= 50000) {
-        step = 10000;
-      } else {
-        step = 20000;
-      }
-      max = Math.ceil(maxValue / step) * step;
-      format = 'thousands';
-    }
-    else if (maxValue <= 1000000) {
-      // 100K-1M: använd 100000-tal eller 200000-tal
-      if (maxValue <= 500000) {
-        step = 100000;
-      } else {
-        step = 200000;
-      }
-      max = Math.ceil(maxValue / step) * step;
-      format = 'thousands';
-    }
-    else {
-      // Över 1M: använd miljoner
-      if (maxValue <= 5000000) {
-        step = 1000000;
-      } else if (maxValue <= 10000000) {
-        step = 2000000;
-      } else {
-        step = 5000000;
-      }
-      max = Math.ceil(maxValue / step) * step;
-      format = 'millions';
-    }
-
-    return { min: 0, max, step, format };
-  };
-
-  // Formatera Y-axel värden baserat på format-typ
-  const formatYAxisValue = (value, format) => {
-    if (value === 0) return '0';
-    
-    switch (format) {
-      case 'number':
-        return value.toLocaleString('sv-SE');
-      case 'thousands':
-        if (value >= 1000) {
-          return `${(value / 1000).toLocaleString('sv-SE')}k`;
-        }
-        return value.toLocaleString('sv-SE');
-      case 'millions':
-        if (value >= 1000000) {
-          return `${(value / 1000000).toLocaleString('sv-SE')}M`;
-        } else if (value >= 1000) {
-          return `${(value / 1000).toLocaleString('sv-SE')}k`;
-        }
-        return value.toLocaleString('sv-SE');
-      default:
-        return value.toLocaleString('sv-SE');
-    }
-  };
-
-  // Generera Y-axel steg för SVG-rendering
-  const generateYAxisSteps = (yAxisConfig) => {
-    const steps = [];
-    const { min, max, step } = yAxisConfig;
-    
-    for (let value = min; value <= max; value += step) {
-      steps.push(value);
-    }
-    
-    return steps;
-  };
-
-// DEL_1_SLUTAR_HÄR - Fortsätt med del 2 som börjar med handleExportCSV
-// DEL_2_BÖRJAR_HÄR - Fortsättning från del 1 med handleExportCSV
-
-  // FIXAD PNG-export funktion med korrekt aspect ratio
+  // FIXAD PNG-export med legenda och korrekt aspect ratio (som bild 2)
   const exportChartAsPNG = () => {
     const svg = document.querySelector('#trend-chart-svg');
     if (!svg || chartLines.length === 0) return;
@@ -229,10 +124,9 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    // KORRIGERAT: Behåll SVG:ens aspect ratio (1000x500 = 2:1)
-    const aspectRatio = 2; // 1000/500 = 2
-    const exportWidth = 1600; // Hög kvalitet för PPT
-    const exportHeight = exportWidth / aspectRatio; // 800px för korrekt ratio
+    // KORRIGERAT: Aspect ratio som matchar bild 2 (mer kvadratisk)
+    const exportWidth = 1200; // Bredare men inte för bred
+    const exportHeight = 900; // Högre för att matcha bild 2
     
     canvas.width = exportWidth;
     canvas.height = exportHeight;
@@ -241,7 +135,55 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, exportWidth, exportHeight);
     
-    // Konvertera SVG till PNG via HTML5 Canvas
+    // STEG 1: Rita datapunkt-indikator (prominent blå box som i bild 2) - INGEN svart titel
+    const boxY = 60;
+    const boxHeight = 60;
+    ctx.fillStyle = '#dbeafe'; // Ljusblå bakgrund
+    ctx.fillRect(100, boxY, exportWidth - 200, boxHeight);
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(100, boxY, exportWidth - 200, boxHeight);
+    
+    // Text i blå box
+    ctx.fillStyle = '#1e40af';
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText(`Visar: ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`, exportWidth / 2, boxY + 30);
+    ctx.font = '14px Arial, sans-serif';
+    ctx.fillText('Aktuell datapunkt som visas i diagrammet', exportWidth / 2, boxY + 50);
+    
+    // STEG 3: Rita legenda FÖRE diagrammet (som i bild 2)
+    const legendY = 140;
+    const legendItemWidth = 200;
+    const legendItemHeight = 25;
+    
+    // CENTRERA legenda-objekten baserat på antal konton
+    const totalLegendWidth = chartLines.length * legendItemWidth;
+    const legendStartX = (exportWidth - totalLegendWidth) / 2;
+    
+    chartLines.forEach((line, index) => {
+      const startX = legendStartX + (index * legendItemWidth);
+      
+      // Färgad cirkel
+      ctx.fillStyle = line.color;
+      ctx.beginPath();
+      ctx.arc(startX + 10, legendY + 12, 6, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Kontonamn
+      ctx.fillStyle = '#374151';
+      ctx.font = '14px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      
+      // Korta ner långa namn om nödvändigt
+      let displayName = line.pageName;
+      if (displayName.length > 20) {
+        displayName = displayName.substring(0, 17) + '...';
+      }
+      
+      ctx.fillText(displayName, startX + 25, legendY + 17);
+    });
+    
+    // STEG 4: Konvertera och rita SVG-diagrammet
     const svgData = new XMLSerializer().serializeToString(svg);
     const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const URL = window.URL || window.webkitURL;
@@ -249,34 +191,35 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     
     const img = new Image();
     img.onload = () => {
-      // KORRIGERAT: Rita SVG med korrekt skalning och positionering
-      const titleHeight = 80;
-      const footerHeight = 120;
-      const chartHeight = exportHeight - titleHeight - footerHeight;
+      // KORRIGERAT: Diagram-område (anpassat för legenda ovan)
+      const chartStartY = legendY + 50; // Efter legenda
+      const chartHeight = exportHeight - chartStartY - 100; // Lämna plats för footer
+      const chartWidth = exportWidth - 200; // Marginaler
       
-      // Rita SVG-diagrammet med korrekt skalning
-      ctx.drawImage(img, 0, titleHeight, exportWidth, chartHeight);
+      // Rita SVG-diagrammet
+      ctx.drawImage(img, 100, chartStartY, chartWidth, chartHeight);
       
-      // Lägg till prominent titel
-      ctx.fillStyle = '#1f2937';
-      ctx.font = 'bold 32px Arial, sans-serif';
+      // STEG 5: Footer-information (konto-lista)
+      const footerY = exportHeight - 60;
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '16px Arial, sans-serif';
       ctx.textAlign = 'center';
-      const title = `Utveckling över tid - ${METRIC_DEFINITIONS[selectedMetric]?.displayName}`;
-      ctx.fillText(title, exportWidth / 2, 50);
       
-      // Lägg till konto-information
-      ctx.fillStyle = '#4b5563';
-      ctx.font = '24px Arial, sans-serif';
       const selectedPageNames = chartLines.map(line => line.pageName);
-      const accountText = selectedPageNames.length === 1 
-        ? `Konto: ${selectedPageNames[0]}`
-        : `Konton: ${selectedPageNames.join(', ')}`;
+      let accountText = '';
+      if (selectedPageNames.length === 1) {
+        accountText = `Konto: ${selectedPageNames[0]}`;
+      } else if (selectedPageNames.length <= 3) {
+        accountText = `Konton: ${selectedPageNames.join(', ')}`;
+      } else {
+        accountText = `${selectedPageNames.length} konton: ${selectedPageNames.slice(0, 2).join(', ')} med flera`;
+      }
       
-      // Hantera lång text genom att dela upp i rader om nödvändigt
+      // Dela upp lång text i flera rader om nödvändigt
       const maxWidth = exportWidth - 200;
       const words = accountText.split(' ');
       let line = '';
-      let y = exportHeight - 60;
+      let y = footerY;
       
       for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
@@ -286,20 +229,20 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
         if (testWidth > maxWidth && n > 0) {
           ctx.fillText(line, exportWidth / 2, y);
           line = words[n] + ' ';
-          y += 30;
+          y += 25;
         } else {
           line = testLine;
         }
       }
       ctx.fillText(line, exportWidth / 2, y);
       
-      // Exportera som PNG
+      // STEG 6: Exportera som PNG
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         
-        // Inkludera kontonamn i filnamnet
+        // Filnamn med kontonamn
         const kontoSuffix = selectedPageNames.length === 1 
           ? selectedPageNames[0].replace(/[^a-zA-Z0-9]/g, '-')
           : `${selectedPageNames.length}-konton`;
@@ -329,6 +272,9 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
   const handleMetricToggle = (metricKey) => {
     setSelectedMetric(metricKey);
   };
+
+// DEL_1_SLUTAR_HÄR - Fortsätt med del 2 som börjar med handlePeriodToggle
+// DEL_2_BÖRJAR_HÄR - Fortsättning från del 1 med handlePeriodToggle
 
   // Hantera periodval
   const handlePeriodToggle = (period) => {
@@ -426,16 +372,19 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
     return Array.from(groupedByPage.values());
   }, [generateChartData, selectedPages]);
 
-  // UPPDATERAD Y-axel range med smart skalning
-  const yAxisConfig = useMemo(() => {
-    if (generateChartData.length === 0) {
-      return calculateSmartYAxis(100); // Default för tom data
-    }
+  // Beräkna Y-axel range
+  const yAxisRange = useMemo(() => {
+    if (generateChartData.length === 0) return { min: 0, max: 100 };
     
     const values = generateChartData.map(d => d.value);
-    const maxValue = Math.max(...values);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const padding = (max - min) * 0.1 || 10;
     
-    return calculateSmartYAxis(maxValue);
+    return {
+      min: Math.max(0, min - padding),
+      max: max + padding
+    };
   }, [generateChartData]);
 
   // MJUK KURV-FUNKTION (Catmull-Rom spline)
@@ -645,7 +594,7 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
                 ))}
               </div>
 
-              {/* SVG Diagram - UPPDATERAD MED NY Y-AXEL OCH ÖKAT AVSTÅND */}
+              {/* SVG Diagram - STÖRRE STORLEK */}
               <div className="relative">
                 <svg 
                   id="trend-chart-svg"
@@ -663,14 +612,15 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
                   </defs>
                   <rect width="100%" height="100%" fill="url(#grid)" />
 
-                  {/* UPPDATERAD Y-axel med smart skalning OCH ÖKAT AVSTÅND */}
-                  {generateYAxisSteps(yAxisConfig).map(value => {
-                    const yPos = 450 - ((value - yAxisConfig.min) / (yAxisConfig.max - yAxisConfig.min)) * 380;
+                  {/* Y-axel värden */}
+                  {[0, 25, 50, 75, 100].map(percent => {
+                    const yPos = 450 - (percent / 100) * 380;
+                    const value = yAxisRange.min + (percent / 100) * (yAxisRange.max - yAxisRange.min);
                     return (
-                      <g key={value}>
+                      <g key={percent}>
                         <line x1="70" y1={yPos} x2="930" y2={yPos} stroke="#d1d5db" strokeWidth="1"/>
-                        <text x="55" y={yPos + 4} textAnchor="end" fontSize="14" fill="#6b7280">
-                          {formatYAxisValue(value, yAxisConfig.format)}
+                        <text x="65" y={yPos + 4} textAnchor="end" fontSize="14" fill="#6b7280">
+                          {Math.round(value).toLocaleString()}
                         </text>
                       </g>
                     );
@@ -692,17 +642,17 @@ const TrendAnalysisView = ({ uploadedPeriods }) => {
                     );
                   })}
 
-                  {/* MJUKA KURVORNA med uppdaterad Y-skalning */}
+                  {/* MJUKA KURVORNA */}
                   {chartLines.map(line => {
                     if (line.points.length < 1) return null;
 
-                    // Beräkna koordinater för alla punkter med ny Y-axel
+                    // Beräkna koordinater för alla punkter
                     const pathPoints = line.points.map((point, index) => {
                       const periodIndex = availablePeriods.findIndex(p => 
                         `${p.year}-${p.month.toString().padStart(2, '0')}` === point.periodKey
                       );
                       const x = 70 + (periodIndex / Math.max(1, availablePeriods.length - 1)) * 860;
-                      const y = 450 - ((point.value - yAxisConfig.min) / (yAxisConfig.max - yAxisConfig.min)) * 380;
+                      const y = 450 - ((point.value - yAxisRange.min) / (yAxisRange.max - yAxisRange.min)) * 380;
                       
                       return { x, y, point };
                     });
